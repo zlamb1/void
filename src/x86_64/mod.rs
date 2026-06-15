@@ -30,6 +30,12 @@ pub fn irq_save() -> usize {
     flags
 }
 
+pub fn irq_save_and_disable() -> usize {
+    let flags = irq_save();
+    irq_disable();
+    flags
+}
+
 pub fn spin_hint() {
     unsafe { asm!("pause", options(nomem, nostack, preserves_flags)) }
 }
