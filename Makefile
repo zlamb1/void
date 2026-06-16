@@ -1,12 +1,16 @@
+TARGET ?= x86_64
+
 O ?= build
 BIN ?= $(O)/void.bin
 IMG ?= $(O)/void.img
-CROSS_CC ?= x86_64-elf-gcc
+CROSS_CC ?= $(TARGET)-elf-gcc
 
-LD_SCRIPT := src/x86_64/link.ld
+LD_SCRIPT := src/$(TARGET)/link.ld
 
-SRCS := src/x86_64/_startup.S
-RLIB := target/debug/libvoid.a
+RUST_TARGET := $(TARGET)-unknown-void
+
+SRCS := src/$(TARGET)/_startup.S
+RLIB := target/$(RUST_TARGET)/debug/libvoid.a
 OBJS := $(SRCS:%.S=$(O)/%.o)
 DEPS := $(OBJS:.o=.d) $(RLIB:.a=.d)
 
@@ -38,7 +42,7 @@ $(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
-	cargo build
+	cargo build -Z json-target-spec --target targets/$(RUST_TARGET).json
 
 $(O)/%.o: %.S
 	mkdir -p $(dir $@)

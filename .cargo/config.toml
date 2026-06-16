@@ -1,2 +1,3 @@
 [unstable]
-build-std = [ "core", "alloc" ]
+build-std = [ "alloc", "compiler_builtins", "core" ]
+build-std-features = [ "compiler-builtins-mem" ]

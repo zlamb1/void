@@ -2,6 +2,7 @@ use core::sync::atomic::{AtomicU32, Ordering, fence};
 
 use crate::arch;
 
+#[derive(Debug)]
 pub struct SpinLock {
     owner: AtomicU32,
     next: AtomicU32,
@@ -21,6 +22,13 @@ impl SpinLock {
         fence(Ordering::Acquire);
     }
 
+    pub const fn new() -> Self {
+        Self {
+            owner: AtomicU32::new(0),
+            next: AtomicU32::new(0),
+        }
+    }
+
     /// # Safety:
     /// See [`SpinLock::acquire`].
     pub unsafe fn release(&self) {
@@ -28,7 +36,7 @@ impl SpinLock {
     }
 
     /// # Safety:
-    /// If successful, has the same requirements as [`SpinLock::acquire`].
+    /// If successful, has the same invariants as [`SpinLock::acquire`].
     pub unsafe fn try_acquire(&self) -> bool {
         // Safety: Must synchronize with the release on owner.
         let owner = self.owner.load(Ordering::Acquire);
