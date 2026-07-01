@@ -11,6 +11,13 @@ pub struct Console {
     node: list::Links,
 }
 
+impl Drop for Console {
+    fn drop(&mut self) {
+        let node = unsafe { Pin::new_unchecked(&self.node) };
+        CONSOLES.with(|_| node.remove());
+    }
+}
+
 unsafe impl ListOwned for Console {}
 
 struct Adapter;
