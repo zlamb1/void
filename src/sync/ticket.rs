@@ -2,7 +2,7 @@ use core::sync::atomic::{AtomicU32, Ordering, fence};
 
 use crate::arch;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SpinLock {
     owner: AtomicU32,
     next: AtomicU32,
@@ -38,25 +38,25 @@ impl SpinLock {
     /// # Safety:
     /// If successful, has the same invariants as [`SpinLock::acquire`].
     pub unsafe fn try_acquire(&self) -> bool {
-        // Safety: Must synchronize with the release on owner.
-        let owner = self.owner.load(Ordering::Acquire);
+        let owner = self.owner.load(Ordering::Relaxed);
         let ticket = self.next.load(Ordering::Relaxed);
         if ticket != owner {
             return false;
         }
-        // Safety: Must prevent local reordering within core/compiler before the ticket is claimed.
         if self
             .next
             .compare_exchange(
                 ticket,
                 ticket.wrapping_add(1),
-                Ordering::Acquire,
+                Ordering::Relaxed,
                 Ordering::Relaxed,
             )
             .is_err()
         {
             return false;
         }
+        // Safety: Must synchronize with the release on owner.
+        fence(Ordering::Acquire);
         true
     }
 }
