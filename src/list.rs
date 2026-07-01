@@ -58,11 +58,12 @@ impl Links {
         let prev = self.prev();
         let next = self.next();
         assert!(next != null());
-        assert!(next != self);
-        prev.set_next(next);
-        next.set_prev(prev);
-        self.set_prev(self);
-        self.set_next(self);
+        if next != self {
+            prev.set_next(next);
+            next.set_prev(prev);
+            self.set_prev(self);
+            self.set_next(self);
+        }
     }
 
     pub fn link(self: *const Self, head: *const Self) {
