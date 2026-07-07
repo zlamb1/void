@@ -1,6 +1,6 @@
 #![no_main]
 #![no_std]
-#![feature(arbitrary_self_types_pointers)]
+#![feature(unsafe_pinned)]
 
 use core::panic::PanicInfo;
 

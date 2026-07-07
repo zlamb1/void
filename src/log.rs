@@ -1,41 +1,46 @@
+use crate::list::{Adapter, Links, List};
+use crate::sync::{self, SpinLock};
 use core::fmt::{self, Write};
+use core::mem::offset_of;
 use core::pin::Pin;
 
-use crate::container_of;
-use crate::lending::Iterator;
-use crate::list::{self, ListOwned};
-use crate::sync::{self, SpinLock};
-
 pub struct Console {
-    write_str: for<'a> fn(state: Pin<&'a mut Console>, s: &[u8]),
-    node: list::Links,
+    write_str: for<'a> fn(console: Pin<&'a Console>, buf: &[u8]),
+    node: Links,
 }
 
-impl Drop for Console {
-    fn drop(&mut self) {
-        let node = unsafe { Pin::new_unchecked(&self.node) };
-        CONSOLES.with(|_| node.remove());
+impl Console {
+    fn write(self: Pin<&Console>, head: usize, tail: usize, buf: &[u8]) {
+        let head = Log::mask(head);
+        let tail = Log::mask(tail);
+        if head < tail {
+            (self.write_str)(self, &buf[head..tail]);
+        } else {
+            (self.write_str)(self, &buf[head..]);
+            (self.write_str)(self, &buf[..tail]);
+        }
     }
 }
 
-unsafe impl ListOwned for Console {}
+struct ConsoleAdapter;
 
-struct Adapter;
-
-unsafe impl list::Adapter<Console> for Adapter {
-    fn from_links(links: *const list::Links) -> *const Console {
-        container_of!(links, Console, node)
+unsafe impl Adapter<Console> for ConsoleAdapter {
+    unsafe fn from_links(links: *const crate::list::Links) -> *const Console {
+        unsafe {
+            let p: *const u8 = links.cast();
+            p.sub(offset_of!(Console, node)).cast()
+        }
     }
 
-    fn to_links(obj: *const Console) -> *const list::Links {
+    unsafe fn to_links(obj: *const Console) -> *const crate::list::Links {
         unsafe { &raw const (*obj).node }
     }
 }
 
 struct Log {
-    _head: usize,
+    head: usize,
     tail: usize,
-    written: usize,
+    pending: usize,
     buf: [u8; Self::CAP],
 }
 
@@ -45,66 +50,77 @@ impl Log {
 
     pub const fn new() -> Self {
         Self {
-            _head: 0,
+            head: 0,
             tail: 0,
-            written: 0,
+            pending: 0,
             buf: [0; _],
         }
+    }
+
+    fn mask(n: usize) -> usize {
+        n & (Self::CAP - 1)
     }
 }
 
 impl Write for Log {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let bytes = s.as_bytes();
-        self.written = core::cmp::min(Self::CAP, bytes.len());
-        for &c in &bytes[bytes.len() - self.written..] {
-            self.buf[self.tail as usize] = c;
-            self.tail = (self.tail + 1) & (Self::CAP - 1);
+        for &c in bytes {
+            if self.tail.wrapping_sub(self.head) == Self::CAP {
+                self.head = self.head.wrapping_add(1);
+            }
+            self.buf[Log::mask(self.tail)] = c;
+            self.tail = self.tail.wrapping_add(1);
         }
+        self.pending += bytes.len();
         Ok(())
     }
 }
 
 static LOG: SpinLock<Log> = SpinLock::new(Log::new());
-static CONSOLES: sync::pin::SpinLock<list::List<Console, Adapter>> =
-    sync::pin::SpinLock::new(list::List::new());
+static CONSOLES: sync::pin::SpinLock<List<Console, ConsoleAdapter>> =
+    sync::pin::SpinLock::new(List::new());
 
 pub fn init() {
-    CONSOLES.acquire().as_pin().init();
+    CONSOLES.with_mut(|consoles| consoles.init());
 }
 
 pub fn register(console: Pin<&Console>) {
-    CONSOLES.with(|consoles| consoles.add(console));
+    let log = LOG.acquire();
+    CONSOLES.with_mut(|consoles| {
+        if log.head != log.tail {
+            console.write(log.head, log.tail, &log.buf);
+        }
+        unsafe {
+            consoles.push_front(console);
+        }
+    });
 }
 
 pub fn write(args: fmt::Arguments) {
     let mut log = LOG.acquire();
-    let read = log.tail;
+    log.pending = 0;
+    let mut head = log.tail;
     let _ = log.write_fmt(args);
-    if log.written == 0 {
+    if log.pending == 0 {
         return;
     }
-    CONSOLES.with_mut(|consoles| {
-        let mut iter = consoles.iter_mut();
-        while let Some(mut console) = iter.next() {
-            let write_str = console.write_str;
-            let end = read + log.written;
-            if end >= Log::CAP {
-                (write_str)(console.as_mut(), &log.buf[read..]);
-                (write_str)(console, &log.buf[..log.tail]);
-            } else {
-                (write_str)(console, &log.buf[read..log.tail]);
-            }
+    if log.pending > Log::CAP {
+        head = log.head;
+    }
+    let tail = log.tail;
+    CONSOLES.with(|consoles| {
+        for console in consoles {
+            console.write(head, tail, &log.buf);
         }
     });
-    log.written = 0;
 }
 
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
         let args = core::format_args!($($arg)*);
-        crate::log::write(args);
+        $crate::log::write(args);
     };
 }
 

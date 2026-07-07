@@ -74,6 +74,12 @@ dbg: $(IMG)
 	gdb $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
 	kill -2 $$QEMU_PID
 
+lldb: $(IMG)
+	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none -s -S & \
+	QEMU_PID=$$!; \
+	lldb $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
+	kill -2 $$QEMU_PID
+
 limine-clean:
 	rm -f $(LIMINE_TAR_GZ) $(LIMINE_TAR)
 	rm -rf $(LIMINE_DIR)

@@ -7,6 +7,7 @@ pkgs.mkShell {
         cross.buildPackages.binutils
         cross.buildPackages.gcc
         gdb
+        lldb
         parted
         wget
     ];
