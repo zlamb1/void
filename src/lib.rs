@@ -6,6 +6,7 @@ use core::panic::PanicInfo;
 
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
+pub mod gfx;
 pub mod lending;
 pub mod limine;
 pub mod list;

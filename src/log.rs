@@ -4,12 +4,21 @@ use core::fmt::{self, Write};
 use core::mem::offset_of;
 use core::pin::Pin;
 
+pub type WriteStr = for<'a> fn(console: Pin<&'a Console>, buf: &[u8]);
+
 pub struct Console {
-    write_str: for<'a> fn(console: Pin<&'a Console>, buf: &[u8]),
+    write_str: WriteStr,
     node: Links,
 }
 
 impl Console {
+    pub fn new(write_str: WriteStr) -> Self {
+        Self {
+            write_str,
+            node: Links::new(),
+        }
+    }
+
     fn write(self: Pin<&Console>, head: usize, tail: usize, buf: &[u8]) {
         let head = Log::mask(head);
         let tail = Log::mask(tail);
