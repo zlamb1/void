@@ -68,7 +68,7 @@ $(O):
 qemu: $(IMG)
 	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none
 
-dbg: $(IMG)
+gdb: $(IMG)
 	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
 	gdb $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
