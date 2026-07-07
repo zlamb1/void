@@ -2,8 +2,8 @@ use core::ffi::c_void;
 
 #[repr(C)]
 pub struct Mask {
-    size: u8,
-    shift: u8,
+    pub size: u8,
+    pub shift: u8,
 }
 
 #[repr(C)]

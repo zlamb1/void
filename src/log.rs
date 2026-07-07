@@ -106,11 +106,14 @@ pub fn register(console: Pin<&Console>) {
     });
 }
 
-pub fn write(args: fmt::Arguments) {
+pub fn write(args: fmt::Arguments, newline: bool) {
     let mut log = LOG.acquire();
     log.pending = 0;
     let mut head = log.tail;
     let _ = log.write_fmt(args);
+    if newline {
+        let _ = log.write_str("\n");
+    }
     if log.pending == 0 {
         return;
     }
@@ -129,8 +132,17 @@ pub fn write(args: fmt::Arguments) {
 macro_rules! print {
     ($($arg:tt)*) => {
         let args = core::format_args!($($arg)*);
-        $crate::log::write(args);
+        $crate::log::write(args, false);
+    };
+}
+
+#[macro_export]
+macro_rules! println {
+    ($($arg:tt)*) => {
+        let args = core::format_args!($($arg)*);
+        $crate::log::write(args, true);
     };
 }
 
 pub(crate) use print;
+pub(crate) use println;
