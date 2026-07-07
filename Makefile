@@ -12,7 +12,7 @@ RUST_TARGET := $(TARGET)-unknown-void
 SRCS := src/$(TARGET)/_startup.S
 RLIB := target/$(RUST_TARGET)/debug/libvoid.a
 OBJS := $(SRCS:%.S=$(O)/%.o)
-DEPS := $(OBJS:.o=.d) $(RLIB:.a=.d)
+DEPS := $(OBJS:.o=.d)
 
 LIMINE_CONF ?= src/limine.conf
 LIMINE_DIR := $(O)/limine-binary
@@ -22,7 +22,7 @@ LIMINE_TAR := $(O)/limine-binary.tar
 LIMINE_TAR_GZ := $(LIMINE_TAR).gz
 LIMINE_VER ?= 12.3.3
 
-.PHONY: all qemu limine-clean clean
+.PHONY: all $(RLIB) qemu limine-clean clean
 
 all: $(IMG)
 
