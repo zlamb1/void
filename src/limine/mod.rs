@@ -44,8 +44,12 @@ pub fn init() {
             let response = req.response?.as_ref();
             (*response.framebuffers?.as_ptr())?.as_ref()
         };
+        println!(
+            "framebuffer detected [addr={:?}, width={}, height={}, bpp={}]",
+            fb.addr, fb.width, fb.height, fb.bpp
+        );
         gfx::fb::Fb::try_new(
-            fb.address.cast(),
+            fb.addr.cast(),
             fb.width.try_into().ok()?,
             fb.height.try_into().ok()?,
             fb.pitch.try_into().ok()?,
@@ -62,6 +66,7 @@ pub fn init() {
             .unwrap();
         let console = unsafe { Pin::new_unchecked(console.get().unwrap_unchecked().base()) };
         crate::log::register(console);
+        println!("framebuffer console registered");
     } else {
         println!("framebuffer console not supported");
     }

@@ -22,7 +22,7 @@ fn panic(_: &PanicInfo) -> ! {
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
     log::init();
+    log::println!("booting...");
     limine::init();
-    log::println!("Hello, Kernel!");
     loop {}
 }

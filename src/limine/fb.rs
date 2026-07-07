@@ -8,7 +8,7 @@ pub struct Mask {
 
 #[repr(C)]
 pub struct Fb {
-    pub address: *mut c_void,
+    pub addr: *mut c_void,
     pub width: u64,
     pub height: u64,
     pub pitch: u64,

@@ -62,6 +62,18 @@ impl Fb {
             blue_mask,
         })
     }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn bpp(&self) -> u16 {
+        self.bpp
+    }
 }
 
 #[derive(Debug)]
