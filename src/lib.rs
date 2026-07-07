@@ -11,20 +11,12 @@ pub mod lending;
 pub mod limine;
 pub mod list;
 pub mod log;
+pub mod ptr;
 pub mod sync;
 
 #[panic_handler]
 fn panic(_: &PanicInfo) -> ! {
     loop {}
-}
-
-#[macro_export]
-macro_rules! container_of {
-    ($field_ptr:expr, $Container:ty, $field:ident) => {{
-        let ptr = $field_ptr as *const _ as *const u8;
-        let ptr = ptr.wrapping_sub(core::mem::offset_of!($Container, $field));
-        ptr.cast::<$Container>()
-    }};
 }
 
 static FB_REQUEST: sync::SpinLock<limine::FbRequest> =
