@@ -46,6 +46,5 @@ pub extern "C" fn kernel_main() -> ! {
     log::init();
     log::register(console);
     log::println!("Hello, Kernel!");
-    log::println!("Hello, Kernel 2!");
     loop {}
 }
