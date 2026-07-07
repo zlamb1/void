@@ -2,7 +2,7 @@ pub mod terminus16_8;
 
 use core::cmp::min;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Font<'a> {
     width: usize,
     height: usize,

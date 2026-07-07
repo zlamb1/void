@@ -3,6 +3,7 @@ use core::{cell::UnsafeCell, pin::Pin, ptr::null_mut};
 use super::font::Font;
 use crate::container_of;
 
+#[derive(Debug)]
 pub struct Mask {
     size: u8,
     shift: u8,
@@ -18,6 +19,7 @@ impl Mask {
     }
 }
 
+#[derive(Debug)]
 pub struct Fb {
     addr: *mut u8,
     width: usize,
@@ -62,6 +64,7 @@ impl Fb {
     }
 }
 
+#[derive(Debug)]
 struct Grid {
     x: usize,
     y: usize,
@@ -79,6 +82,7 @@ impl Grid {
     }
 }
 
+#[derive(Debug)]
 struct State<'a> {
     fb: Fb,
     font: Font<'a>,
@@ -147,6 +151,7 @@ impl<'a> State<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Console<'a> {
     state: UnsafeCell<State<'a>>,
     base: crate::log::Console,
@@ -177,3 +182,5 @@ impl<'a> Console<'a> {
         state.write_str(buf);
     }
 }
+
+unsafe impl<'a> Send for Console<'a> {}

@@ -7,6 +7,7 @@ use core::{
 mod raw {
     use core::{cell::UnsafeCell, marker::PhantomPinned, ptr::null};
 
+    #[derive(Debug)]
     pub struct Raw {
         prev: UnsafeCell<*const Self>,
         next: UnsafeCell<*const Self>,
@@ -122,6 +123,7 @@ mod raw {
     unsafe impl Send for Raw {}
 }
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct Links(UnsafePinned<raw::Raw>);
 
@@ -142,6 +144,7 @@ pub unsafe trait Adapter<T> {
     unsafe fn to_links(obj: *const T) -> *const Links;
 }
 
+#[derive(Debug)]
 pub struct List<T, A: Adapter<T>> {
     links: Links,
     len: usize,
@@ -303,6 +306,7 @@ impl<T, A: Adapter<T>> Default for List<T, A> {
     }
 }
 
+#[derive(Debug)]
 pub struct Cursor<'a, T, A: Adapter<T>> {
     list: Pin<&'a List<T, A>>,
     current: *const raw::Raw,
@@ -346,6 +350,7 @@ impl<'a, T, A: Adapter<T>> IntoIterator for Pin<&'a List<T, A>> {
     }
 }
 
+#[derive(Debug)]
 pub struct Iter<'a, T, A: Adapter<T>> {
     cursor: Cursor<'a, T, A>,
 }

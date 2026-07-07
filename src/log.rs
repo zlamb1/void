@@ -6,6 +6,7 @@ use core::pin::Pin;
 
 pub type WriteStr = for<'a> fn(console: Pin<&'a Console>, buf: &[u8]);
 
+#[derive(Debug)]
 pub struct Console {
     write_str: WriteStr,
     node: Links,
