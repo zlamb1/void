@@ -4,6 +4,10 @@ O ?= build
 BIN ?= $(O)/void.bin
 IMG ?= $(O)/void.img
 CROSS_CC ?= $(TARGET)-elf-gcc
+CARGO ?= cargo
+QEMU ?= qemu-system-x86_64
+GDB ?= gdb
+LLDB ?= lldb
 
 LD_SCRIPT := src/$(TARGET)/link.ld
 
@@ -42,14 +46,14 @@ $(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
-	cargo build -Z json-target-spec --target targets/$(RUST_TARGET).json
+	$(CARGO) build -Z json-target-spec --target targets/$(RUST_TARGET).json
 
 $(O)/%.o: %.S
 	mkdir -p $(dir $@)
 	$(CROSS_CC) -g -MMD -MP -c $< -o $@
 
 $(LIMINE_EXE): | $(LIMINE_DIR)
-	make -C $(LIMINE_DIR)
+	$(MAKE) -C $(LIMINE_DIR)
 
 $(LIMINE_DIR): $(LIMINE_TAR)
 	mkdir $@
@@ -66,18 +70,18 @@ $(O):
 	mkdir $@
 
 qemu: $(IMG)
-	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none
 
 gdb: $(IMG)
-	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
-	gdb $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
+	$(GDB) $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
 	kill -2 $$QEMU_PID
 
 lldb: $(IMG)
-	qemu-system-x86_64 -drive format=raw,file=$< -m 64M -nic none -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
-	lldb $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
+	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
 	kill -2 $$QEMU_PID
 
 limine-clean:
@@ -85,6 +89,7 @@ limine-clean:
 	rm -rf $(LIMINE_DIR)
 
 clean:
-	rm -f $(IMG) $(BIN) $(RLIB) $(OBJS) $(DEPS)
+	$(CARGO) clean
+	rm -f $(IMG) $(BIN) $(OBJS) $(DEPS)
 
 -include $(DEPS)
