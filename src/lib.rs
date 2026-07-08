@@ -19,6 +19,7 @@ pub mod sync;
 
 #[panic_handler]
 fn panic(pi: &PanicInfo) -> ! {
+    log::clear();
     println!("panic: {}", pi.message());
     if let Some(location) = pi.location() {
         println!(

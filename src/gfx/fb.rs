@@ -140,6 +140,9 @@ impl<'a> State<'a> {
             return;
         }
 
+        self.grid.x = 0;
+        self.grid.y = 0;
+
         let bg = self.color_word(self.bg);
         let words = self.font.width() * self.grid.width;
 
