@@ -33,9 +33,5 @@ pub extern "C" fn kernel_main() -> ! {
     log::init();
     log::println!("booting...");
     limine::init();
-    unsafe {
-        let x = 1 as *mut u8;
-        x.read();
-    }
     loop {}
 }
