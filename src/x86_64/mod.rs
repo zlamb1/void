@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+mod boot;
+
 pub fn halt() {
     unsafe {
         asm!("hlt", options(nomem, nostack, preserves_flags));

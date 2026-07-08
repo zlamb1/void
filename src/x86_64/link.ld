@@ -2,16 +2,16 @@ SECTIONS {
     __kernel_vma = 0xffffffff80000000;
     . = __kernel_vma;
 
-    .text : {
+    .text : ALIGN(0x1000) {
         *(.text) *(.text.*)
     }
-    .data : {
+    .data : ALIGN(0x1000) {
         *(.data) *(.data.*)
     }
-    .rodata : {
+    .rodata : ALIGN(0x1000) {
         *(.rodata) *(.rodata.*)
     }
-    .bss : {
+    .bss : ALIGN(0x1000) {
         *(.bss) *(.bss.*)
     }
 }

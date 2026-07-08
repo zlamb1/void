@@ -81,7 +81,7 @@ gdb: $(IMG)
 lldb: $(IMG)
 	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
-	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
+	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b _start' -o 'c'
 	kill -2 $$QEMU_PID
 
 limine-clean:
