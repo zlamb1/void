@@ -15,7 +15,16 @@ pub mod ptr;
 pub mod sync;
 
 #[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
+fn panic(pi: &PanicInfo) -> ! {
+    println!("panic: {}", pi.message());
+    if let Some(location) = pi.location() {
+        println!(
+            "location: {}:{}:{}",
+            location.file(),
+            location.line(),
+            location.column()
+        );
+    }
     loop {}
 }
 

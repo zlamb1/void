@@ -1,5 +1,3 @@
-use crate::println;
-
 const EXCEPTION_NAMES: &[&str] = &[
     "division error",
     "debug",
@@ -38,6 +36,5 @@ extern "C" fn boot_exception_handler(exception_number: u64) {
     if exception_number < EXCEPTION_NAMES.len() as u64 {
         exception_name = EXCEPTION_NAMES[exception_number as usize];
     }
-    println!("exception occurred: {}", exception_name);
-    panic!();
+    panic!("{}", exception_name);
 }
