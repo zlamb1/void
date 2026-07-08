@@ -31,13 +31,9 @@ fn panic(pi: &PanicInfo) -> ! {
     loop {}
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn kernel_main() -> ! {
-    log::init();
-    log::println!("booting...");
-    let bi = limine::init();
-    if let Some(boot_time) = bi.boot_time {
-        let bt = date::Date::from_utime(boot_time);
+fn log_boot_time(bt: &Option<i64>) {
+    if let &Some(bt) = bt {
+        let bt = date::Date::from_utime(bt);
         log::println!(
             "boot time: {} {} {} {:02}:{:02}:{:02} {}",
             bt.day_of_month(),
@@ -49,6 +45,14 @@ pub extern "C" fn kernel_main() -> ! {
             bt.period(),
         );
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kernel_main() -> ! {
+    log::init();
+    log::println!("booting...");
+    let bi = limine::init();
+    log_boot_time(&bi.boot_time);
     mem::init(&bi);
     loop {}
 }
