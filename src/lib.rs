@@ -35,6 +35,9 @@ pub extern "C" fn kernel_main() -> ! {
     log::init();
     log::println!("booting...");
     let bi = limine::init();
+    if let Some(boot_time) = bi.boot_time {
+        log::println!("booting at {}", boot_time);
+    }
     mem::init(&bi);
     loop {}
 }

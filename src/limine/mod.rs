@@ -24,6 +24,10 @@ impl<const M0: u64, const M1: u64, R> Request<M0, M1, R> {
             response: None,
         }
     }
+
+    fn response(&self) -> Option<&R> {
+        Some(unsafe { self.response?.as_ref() })
+    }
 }
 
 unsafe impl<const M0: u64, const M1: u64, R> Send for Request<M0, M1, R> {}
@@ -31,6 +35,7 @@ unsafe impl<const M0: u64, const M1: u64, R> Send for Request<M0, M1, R> {}
 pub type HHDMRequest = Request<0x48dcf1cb8ad2b852, 0x63984e959a98244b, HHDMResponse>;
 pub type FbRequest = Request<0x9d5827dcd881dd75, 0xa3148604f6fab11b, FbResponse>;
 pub type MemMapRequest = Request<0x67cf3d9d378a806f, 0xe304acdfc50c3c62, MemMapResponse>;
+pub type DateAtBootRequest = Request<0x502746e184c088aa, 0xfbc5ec83e6327893, DateAtBootResponse>;
 
 #[repr(C)]
 pub struct HHDMResponse {
@@ -69,9 +74,16 @@ pub struct MemMapResponse {
     pub entries: Option<NonNull<Option<NonNull<MemMapEntry>>>>,
 }
 
+#[repr(C)]
+pub struct DateAtBootResponse {
+    rev: u64,
+    timestamp: i64,
+}
+
 static FB_REQUEST: SpinLock<FbRequest> = SpinLock::new(FbRequest::new());
 static HHDM_REQUEST: SpinLock<HHDMRequest> = SpinLock::new(HHDMRequest::new());
 static MEMMAP_REQUEST: SpinLock<MemMapRequest> = SpinLock::new(MemMapRequest::new());
+static DATE_AT_BOOT_REQUEST: SpinLock<DateAtBootRequest> = SpinLock::new(DateAtBootRequest::new());
 
 static FB_CONSOLE: SpinLock<OnceCell<gfx::fb::Console>> = SpinLock::new(OnceCell::new());
 
@@ -84,7 +96,7 @@ impl Iterator for MmapIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         MEMMAP_REQUEST.with(|request| {
-            let response = unsafe { request.response?.as_ref() };
+            let response = request.response()?;
             let entries = unsafe {
                 core::slice::from_raw_parts(
                     response.entries?.as_ptr(),
@@ -112,14 +124,12 @@ pub fn mmap_iter() -> MmapIterator {
 }
 
 pub fn init() -> BootInfo<MmapIterator> {
-    let fb = FB_REQUEST.with(|req| {
-        let fb = unsafe {
-            let response = req.response?.as_ref();
-            if response.count == 0 {
-                return None;
-            }
-            (*response.framebuffers?.as_ptr())?.as_ref()
-        };
+    let fb = FB_REQUEST.with(|request| {
+        let response = request.response()?;
+        if response.count == 0 {
+            return None;
+        }
+        let fb = unsafe { (*response.framebuffers?.as_ptr())?.as_ref() };
         println!(
             "framebuffer detected [addr={:?}, width={}, height={}, bpp={}]",
             fb.addr, fb.width, fb.height, fb.bpp
@@ -147,12 +157,9 @@ pub fn init() -> BootInfo<MmapIterator> {
         println!("framebuffer console not supported");
     }
     HHDM_REQUEST.with(|request| {
-        let response = unsafe {
-            request
-                .response
-                .expect("linear physical memory not mapped by bootloader")
-                .as_ref()
-        };
+        let response = request
+            .response()
+            .expect("linear physical memory not mapped by bootloader");
         assert_eq!(
             response.offset, 0xffff800000000000,
             "bad linear physical memory mapping at 0x{:x}",
@@ -160,5 +167,12 @@ pub fn init() -> BootInfo<MmapIterator> {
         );
         println!("linear physical memory mapped at 0x{:x}", response.offset);
     });
-    BootInfo { mmap_iter }
+    let boot_time = DATE_AT_BOOT_REQUEST.with(|request| {
+        let response = unsafe { request.response?.as_ref() };
+        Some(response.timestamp)
+    });
+    BootInfo {
+        boot_time,
+        mmap_iter,
+    }
 }
