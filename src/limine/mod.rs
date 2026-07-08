@@ -2,6 +2,8 @@ use core::cell::OnceCell;
 use core::pin::Pin;
 use core::ptr::NonNull;
 
+use crate::boot::BootInfo;
+use crate::mem::{MemoryRegion, MemoryType};
 use crate::sync::SpinLock;
 use crate::{gfx, println};
 
@@ -73,7 +75,43 @@ static MEMMAP_REQUEST: SpinLock<MemMapRequest> = SpinLock::new(MemMapRequest::ne
 
 static FB_CONSOLE: SpinLock<OnceCell<gfx::fb::Console>> = SpinLock::new(OnceCell::new());
 
-pub fn init() {
+pub struct MmapIterator {
+    index: usize,
+}
+
+impl Iterator for MmapIterator {
+    type Item = MemoryRegion;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        MEMMAP_REQUEST.with(|request| {
+            let response = unsafe { request.response?.as_ref() };
+            let entries = unsafe {
+                core::slice::from_raw_parts(
+                    response.entries?.as_ptr(),
+                    response.count.try_into().unwrap(),
+                )
+            };
+            if self.index < entries.len() {
+                let entry = unsafe { entries[self.index]?.as_ref() };
+                self.index += 1;
+                let memory_type = if entry._type == MemMapType::Usable as u64 {
+                    MemoryType::Free
+                } else {
+                    MemoryType::Reserved
+                };
+                Some(MemoryRegion::new(entry.addr, entry.len, memory_type))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+pub fn mmap_iter() -> MmapIterator {
+    MmapIterator { index: 0 }
+}
+
+pub fn init() -> BootInfo<MmapIterator> {
     let fb = FB_REQUEST.with(|req| {
         let fb = unsafe {
             let response = req.response?.as_ref();
@@ -122,21 +160,5 @@ pub fn init() {
         );
         println!("linear physical memory mapped at 0x{:x}", response.offset);
     });
-    MEMMAP_REQUEST.with(|request| {
-        let response = unsafe { request.response?.as_ref() };
-        let entries = unsafe {
-            core::slice::from_raw_parts(
-                response.entries?.as_ptr(),
-                response.count.try_into().unwrap(),
-            )
-        };
-        for entry in entries {
-            let entry = unsafe { entry.unwrap().as_ref() };
-            println!(
-                "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
-                entry.addr, entry.len, entry._type
-            );
-        }
-        Option::<()>::None
-    });
+    BootInfo { mmap_iter }
 }

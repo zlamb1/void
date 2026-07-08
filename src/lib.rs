@@ -6,11 +6,13 @@ use core::panic::PanicInfo;
 
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
+pub mod boot;
 pub mod gfx;
 pub mod lending;
 pub mod limine;
 pub mod list;
 pub mod log;
+pub mod mem;
 pub mod ptr;
 pub mod sync;
 
@@ -32,6 +34,7 @@ fn panic(pi: &PanicInfo) -> ! {
 pub extern "C" fn kernel_main() -> ! {
     log::init();
     log::println!("booting...");
-    limine::init();
+    let bi = limine::init();
+    mem::init(&bi);
     loop {}
 }
