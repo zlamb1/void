@@ -27,6 +27,7 @@ impl<const M0: u64, const M1: u64, R> Request<M0, M1, R> {
 unsafe impl<const M0: u64, const M1: u64, R> Send for Request<M0, M1, R> {}
 
 pub type FbRequest = Request<0x9d5827dcd881dd75, 0xa3148604f6fab11b, FbResponse>;
+pub type MemMapRequest = Request<0x67cf3d9d378a806f, 0xe304acdfc50c3c62, MemMapResponse>;
 
 #[repr(C)]
 pub struct FbResponse {
@@ -35,13 +36,42 @@ pub struct FbResponse {
     pub framebuffers: Option<NonNull<Option<NonNull<fb::Fb>>>>,
 }
 
+pub enum MemMapType {
+    Usable = 0,
+    Reserved = 1,
+    AcpiReclaimable = 2,
+    AcpiNvs = 3,
+    BadMemory = 4,
+    Reclaimable = 5,
+    Executable = 6,
+    Framebuffer = 7,
+}
+
+pub struct MemMapEntry {
+    pub addr: u64,
+    pub len: u64,
+    pub _type: u64,
+}
+
+#[repr(C)]
+pub struct MemMapResponse {
+    rev: u64,
+    pub count: u64,
+    pub entries: Option<NonNull<Option<NonNull<MemMapEntry>>>>,
+}
+
 static FB_REQUEST: SpinLock<FbRequest> = SpinLock::new(FbRequest::new());
+static MEMMAP_REQUEST: SpinLock<MemMapRequest> = SpinLock::new(MemMapRequest::new());
+
 static FB_CONSOLE: SpinLock<OnceCell<gfx::fb::Console>> = SpinLock::new(OnceCell::new());
 
 pub fn init() {
     let fb = FB_REQUEST.with(|req| {
         let fb = unsafe {
             let response = req.response?.as_ref();
+            if response.count == 0 {
+                return None;
+            }
             (*response.framebuffers?.as_ptr())?.as_ref()
         };
         println!(
@@ -70,4 +100,21 @@ pub fn init() {
     } else {
         println!("framebuffer console not supported");
     }
+    MEMMAP_REQUEST.with(|request| {
+        let response = unsafe { request.response?.as_ref() };
+        let entries = unsafe {
+            core::slice::from_raw_parts(
+                response.entries?.as_ptr(),
+                response.count.try_into().unwrap(),
+            )
+        };
+        for entry in entries {
+            let entry = unsafe { entry.unwrap().as_ref() };
+            println!(
+                "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
+                entry.addr, entry.len, entry._type
+            );
+        }
+        Option::<()>::None
+    });
 }

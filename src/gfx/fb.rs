@@ -140,7 +140,6 @@ impl<'a> State<'a> {
                 }
                 _ => {}
             }
-
             let pixel = unsafe {
                 fb.addr.add(
                     fb.pitch * self.grid.y * font.height() + p_bytes * self.grid.x * font.width(),
