@@ -4,17 +4,20 @@ use core::fmt::{self, Write};
 use core::mem::offset_of;
 use core::pin::Pin;
 
-pub type WriteStr = for<'a> fn(console: Pin<&'a Console>, buf: &[u8]);
+pub type Clear = fn(console: Pin<&Console>);
+pub type WriteStr = fn(console: Pin<&Console>, buf: &[u8]);
 
 #[derive(Debug)]
 pub struct Console {
+    clear: Clear,
     write_str: WriteStr,
     node: Links,
 }
 
 impl Console {
-    pub fn new(write_str: WriteStr) -> Self {
+    pub fn new(clear: Clear, write_str: WriteStr) -> Self {
         Self {
+            clear,
             write_str,
             node: Links::new(),
         }
@@ -96,6 +99,7 @@ pub fn init() {
 }
 
 pub fn register(console: Pin<&Console>) {
+    (console.clear)(console);
     let log = LOG.acquire();
     CONSOLES.with_mut(|consoles| {
         if log.head != log.tail {
@@ -103,6 +107,14 @@ pub fn register(console: Pin<&Console>) {
         }
         unsafe {
             consoles.push_front(console);
+        }
+    });
+}
+
+pub fn clear() {
+    CONSOLES.with(|consoles| {
+        for console in consoles {
+            (console.clear)(console);
         }
     });
 }
@@ -145,5 +157,6 @@ macro_rules! println {
     };
 }
 
+#[allow(unused_imports)]
 pub(crate) use print;
 pub(crate) use println;

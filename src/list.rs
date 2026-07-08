@@ -78,6 +78,7 @@ mod raw {
             debug_assert_ne!(this, null());
             debug_assert_ne!(head, null());
             debug_assert_ne!(sentinel, null());
+            #[cfg(debug_assertions)]
             debug_assert_eq!(Self::sentinel(this), null());
             let (prev, next) = unsafe { (Self::prev(this), Self::next(this)) };
             debug_assert!(prev == next && (next == null() || next == this));
@@ -93,6 +94,7 @@ mod raw {
 
         pub unsafe fn unlink(this: *const Self, sentinel: *const Self) {
             debug_assert_ne!(this, null());
+            #[cfg(debug_assertions)]
             debug_assert_eq!(Self::sentinel(this), sentinel);
             let (prev, next) = unsafe { (Self::prev(this), Self::next(this)) };
             debug_assert_ne!(prev, null());
