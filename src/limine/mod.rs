@@ -168,7 +168,7 @@ pub fn init() -> BootInfo<MmapIterator> {
         println!("linear physical memory mapped at 0x{:x}", response.offset);
     });
     let boot_time = DATE_AT_BOOT_REQUEST.with(|request| {
-        let response = unsafe { request.response?.as_ref() };
+        let response = request.response()?;
         Some(response.timestamp)
     });
     BootInfo {
