@@ -41,3 +41,7 @@ pub fn irq_save_and_disable() -> usize {
 pub fn spin_hint() {
     unsafe { asm!("pause", options(nomem, nostack, preserves_flags)) }
 }
+
+pub fn sfence() {
+    unsafe { asm!("sfence", options(nomem, nostack)) }
+}

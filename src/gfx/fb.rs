@@ -1,6 +1,7 @@
 use core::{cell::UnsafeCell, pin::Pin, ptr::null_mut};
 
 use super::font::Font;
+use crate::arch;
 use crate::container_of;
 
 #[derive(Debug)]
@@ -159,6 +160,9 @@ impl<'a> State<'a> {
                 self.grid.newline();
             }
         }
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        // NOTE: Write combining memory needs flushing.
+        arch::sfence();
     }
 }
 
