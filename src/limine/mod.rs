@@ -26,8 +26,15 @@ impl<const M0: u64, const M1: u64, R> Request<M0, M1, R> {
 
 unsafe impl<const M0: u64, const M1: u64, R> Send for Request<M0, M1, R> {}
 
+pub type HHDMRequest = Request<0x48dcf1cb8ad2b852, 0x63984e959a98244b, HHDMResponse>;
 pub type FbRequest = Request<0x9d5827dcd881dd75, 0xa3148604f6fab11b, FbResponse>;
 pub type MemMapRequest = Request<0x67cf3d9d378a806f, 0xe304acdfc50c3c62, MemMapResponse>;
+
+#[repr(C)]
+pub struct HHDMResponse {
+    rev: u64,
+    offset: u64,
+}
 
 #[repr(C)]
 pub struct FbResponse {
@@ -61,6 +68,7 @@ pub struct MemMapResponse {
 }
 
 static FB_REQUEST: SpinLock<FbRequest> = SpinLock::new(FbRequest::new());
+static HHDM_REQUEST: SpinLock<HHDMRequest> = SpinLock::new(HHDMRequest::new());
 static MEMMAP_REQUEST: SpinLock<MemMapRequest> = SpinLock::new(MemMapRequest::new());
 
 static FB_CONSOLE: SpinLock<OnceCell<gfx::fb::Console>> = SpinLock::new(OnceCell::new());
@@ -100,6 +108,20 @@ pub fn init() {
     } else {
         println!("framebuffer console not supported");
     }
+    HHDM_REQUEST.with(|request| {
+        let response = unsafe {
+            request
+                .response
+                .expect("linear physical memory not mapped by bootloader")
+                .as_ref()
+        };
+        assert_eq!(
+            response.offset, 0xffff800000000000,
+            "bad linear physical memory mapping at 0x{:x}",
+            response.offset
+        );
+        println!("linear physical memory mapped at 0x{:x}", response.offset);
+    });
     MEMMAP_REQUEST.with(|request| {
         let response = unsafe { request.response?.as_ref() };
         let entries = unsafe {
