@@ -2,7 +2,10 @@
 #![no_std]
 #![feature(unsafe_pinned)]
 
-use core::panic::PanicInfo;
+use core::{
+    panic::PanicInfo,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
@@ -17,8 +20,16 @@ pub mod mem;
 pub mod ptr;
 pub mod sync;
 
+static HAS_PANICKED: AtomicBool = AtomicBool::new(false);
+
 #[panic_handler]
 fn panic(pi: &PanicInfo) -> ! {
+    arch::irq_disable();
+    if HAS_PANICKED.swap(true, Ordering::SeqCst) {
+        loop {
+            arch::halt();
+        }
+    }
     log::clear();
     println!("panic: {}", pi.message());
     if let Some(location) = pi.location() {
@@ -29,7 +40,9 @@ fn panic(pi: &PanicInfo) -> ! {
             location.column()
         );
     }
-    loop {}
+    loop {
+        arch::halt();
+    }
 }
 
 fn log_boot_time(bt: &Option<i64>) {
