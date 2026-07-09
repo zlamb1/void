@@ -1,6 +1,9 @@
 pub mod fmt;
+pub mod page;
 
-use core::{alloc::Layout, fmt::Display, ptr::NonNull};
+#[cfg(debug_assertions)]
+use core::cell::Cell;
+use core::{alloc::Layout, cell::UnsafeCell, fmt::Display, mem::MaybeUninit, ptr::NonNull, slice};
 
 use crate::{boot::BootInfo, println, sync::SpinLock};
 
@@ -67,15 +70,30 @@ struct MemoryMap {
     regions: [MemoryRegion; 64],
 }
 
+struct PageMem {
+    #[cfg(debug_assertions)]
+    init: Cell<bool>,
+    page_mem: UnsafeCell<MaybeUninit<&'static [page::Page]>>,
+}
+
+unsafe impl Sync for PageMem {}
+
 static MMAP: SpinLock<MemoryMap> = SpinLock::new(MemoryMap {
     count: 0,
     regions: [MemoryRegion::new(0, 0, MemoryType::Reserved); 64],
 });
 
+static PAGE_MEM: PageMem = PageMem {
+    #[cfg(debug_assertions)]
+    init: Cell::new(false),
+    page_mem: UnsafeCell::new(MaybeUninit::uninit()),
+};
+
 pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
     let mut mmap = MMAP.acquire();
     let mut max_free_addr: u64 = 0;
     let mut free_bytes: u64 = 0;
+
     for entry in (bi.mmap_iter)() {
         println!(
             "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
@@ -101,11 +119,74 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
             free_bytes += entry.len();
         }
     }
+
     println!("max free address at 0x{:x}", max_free_addr);
-    println!("available free memory: {}", fmt::Memory::new(free_bytes));
+    println!(
+        "available physical memory: {}",
+        fmt::Memory::new(free_bytes)
+    );
+
+    let pfns: usize = ((max_free_addr / page::SIZE as u64) + 1)
+        .try_into()
+        .unwrap();
+    let layout = Layout::array::<page::Page>(pfns).unwrap();
+
+    println!(
+        "reserving {} for page metadata...",
+        fmt::Memory::new(layout.size() as u64)
+    );
+
+    let page_mem: NonNull<page::Page> = allocate_early(layout)
+        .expect("failed to allocate page metadata")
+        .cast();
+    for i in 0..pfns {
+        unsafe {
+            page_mem.add(i).write(page::Page::new());
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    debug_assert_eq!(PAGE_MEM.init.get(), false);
+    unsafe {
+        let page_mem = slice::from_raw_parts::<page::Page>(page_mem.as_ptr(), pfns);
+        // SAFETY: The bootstrap processor set up page_mem
+        // long before any other processors are up and ready.
+        // Synchronization must be performed prior to other APs
+        // running to ensure this is visible.
+        (&mut *PAGE_MEM.page_mem.get()).write(page_mem);
+        #[cfg(debug_assertions)]
+        PAGE_MEM.init.set(true);
+    }
+}
+
+pub fn get_pfn(ptr: *const ()) -> usize {
+    let addr = ptr.addr();
+    addr >> page::LOG2_SIZE
+}
+
+pub fn try_get_page(pfn: usize) -> Option<&'static page::Page> {
+    #[cfg(debug_assertions)]
+    debug_assert_eq!(PAGE_MEM.init.get(), true);
+    let page_mem = unsafe { (&*PAGE_MEM.page_mem.get()).assume_init() };
+    if pfn < page_mem.len() {
+        Some(&page_mem[pfn])
+    } else {
+        None
+    }
+}
+
+pub fn get_page(pfn: usize) -> &'static page::Page {
+    try_get_page(pfn).unwrap()
 }
 
 pub const VADDR: u64 = 0xffff800000000000;
+
+#[allow(unused)]
+macro_rules! paddr {
+    ($addr:expr) => {
+        $addr.checked_sub($crate::mem::VADDR)
+    };
+}
 
 macro_rules! vaddr {
     ($addr:expr) => {
