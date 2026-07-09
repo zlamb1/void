@@ -3,7 +3,7 @@ use core::pin::Pin;
 use core::ptr::NonNull;
 
 use crate::boot::BootInfo;
-use crate::mem::{MemoryRegion, MemoryType};
+use crate::mem::{MemoryRegion, MemoryType, VADDR};
 use crate::sync::SpinLock;
 use crate::{gfx, println};
 
@@ -173,7 +173,7 @@ pub fn init() -> BootInfo<MmapIterator> {
             .response()
             .expect("linear physical memory not mapped by bootloader");
         assert_eq!(
-            response.offset, 0xffff800000000000,
+            response.offset, VADDR,
             "bad linear physical memory mapping at 0x{:x}",
             response.offset
         );

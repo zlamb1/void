@@ -105,7 +105,13 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
     println!("available free memory: {}", fmt::Memory::new(free_bytes));
 }
 
-const VADDR_OFF: u64 = 0xffff800000000000;
+pub const VADDR: u64 = 0xffff800000000000;
+
+macro_rules! vaddr {
+    ($addr:expr) => {
+        $addr.checked_add($crate::mem::VADDR)
+    };
+}
 
 pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
     let mut mmap = MMAP.acquire();
@@ -127,7 +133,7 @@ pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
         if pad >= len || size > len - pad {
             continue;
         }
-        let Some(vaddr) = aligned_start.checked_add(VADDR_OFF) else {
+        let Some(vaddr) = vaddr!(aligned_start) else {
             println!("allocate_early: bad physical address 0x{:x}", aligned_start);
             continue;
         };
