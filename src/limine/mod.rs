@@ -64,7 +64,7 @@ pub enum MemMapType {
 pub struct MemMapEntry {
     pub addr: u64,
     pub len: u64,
-    pub _type: u64,
+    pub mem_type: u64,
 }
 
 #[repr(C)]
@@ -106,8 +106,20 @@ impl Iterator for MmapIterator {
             if self.index < entries.len() {
                 let entry = unsafe { entries[self.index]?.as_ref() };
                 self.index += 1;
-                let memory_type = if entry._type == MemMapType::Usable as u64 {
+                let memory_type = if entry.mem_type == MemMapType::Usable as u64 {
                     MemoryType::Free
+                } else if entry.mem_type == MemMapType::AcpiReclaimable as u64 {
+                    MemoryType::AcpiReclaimable
+                } else if entry.mem_type == MemMapType::AcpiNvs as u64 {
+                    MemoryType::AcpiNvs
+                } else if entry.mem_type == MemMapType::Reclaimable as u64 {
+                    MemoryType::Reclaimable
+                } else if entry.mem_type == MemMapType::BadMemory as u64 {
+                    MemoryType::BadMemory
+                } else if entry.mem_type == MemMapType::Executable as u64 {
+                    MemoryType::Kernel
+                } else if entry.mem_type == MemMapType::Framebuffer as u64 {
+                    MemoryType::Framebuffer
                 } else {
                     MemoryType::Reserved
                 };
