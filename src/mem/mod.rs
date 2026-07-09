@@ -1,6 +1,6 @@
 pub mod fmt;
 
-use core::fmt::Display;
+use core::{alloc::Layout, fmt::Display, ptr::NonNull};
 
 use crate::{boot::BootInfo, println, sync::SpinLock};
 
@@ -34,6 +34,7 @@ impl Display for MemoryType {
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryRegion {
     addr: u64,
+    allocated: u64,
     len: u64,
     memory_type: MemoryType,
 }
@@ -42,6 +43,7 @@ impl MemoryRegion {
     pub const fn new(addr: u64, len: u64, memory_type: MemoryType) -> Self {
         Self {
             addr,
+            allocated: 0,
             len,
             memory_type,
         }
@@ -77,16 +79,14 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
     for entry in (bi.mmap_iter)() {
         println!(
             "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
-            entry.addr,
-            entry.len,
-            entry.memory_type(),
+            entry.addr, entry.len, entry.memory_type,
         );
         if entry.len() == 0 {
             continue;
         }
-        if entry.memory_type() == MemoryType::Free
-            || entry.memory_type() == MemoryType::Reclaimable
-            || entry.memory_type() == MemoryType::AcpiReclaimable
+        if entry.memory_type == MemoryType::Free
+            || entry.memory_type == MemoryType::Reclaimable
+            || entry.memory_type == MemoryType::AcpiReclaimable
         {
             assert!(mmap.count < mmap.regions.len(), "memory map full");
             let count = mmap.count;
@@ -103,4 +103,36 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
     }
     println!("max free address at 0x{:x}", max_free_addr);
     println!("available free memory: {}", fmt::Memory::new(free_bytes));
+}
+
+const VADDR_OFF: u64 = 0xffff800000000000;
+
+pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
+    let mut mmap = MMAP.acquire();
+    let count = mmap.count;
+    let align = layout.align() as u64;
+    let size = layout.size() as u64;
+    debug_assert!(size > 0);
+    for region in &mut mmap.regions[..count] {
+        if region.memory_type != MemoryType::Free {
+            continue;
+        }
+        debug_assert!(region.allocated <= region.len);
+        let Some(start) = region.addr.checked_add(region.allocated) else {
+            continue;
+        };
+        let aligned_start = start.next_multiple_of(align);
+        let pad = aligned_start - start;
+        let len = region.len - region.allocated;
+        if pad >= len || size > len - pad {
+            continue;
+        }
+        let Some(vaddr) = aligned_start.checked_add(VADDR_OFF) else {
+            println!("allocate_early: bad physical address 0x{:x}", aligned_start);
+            continue;
+        };
+        region.allocated += pad + size;
+        return Some(unsafe { NonNull::new_unchecked(vaddr as *mut u8) });
+    }
+    None
 }
