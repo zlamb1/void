@@ -65,7 +65,11 @@ impl Iterator for MmapIter {
                     memmap::Type::Unknown => MemoryType::Reserved,
                 };
 
-                Some(MemoryRegion::new(entry.base(), entry.len(), memory_type))
+                Some(MemoryRegion::new(
+                    entry.base().try_into().unwrap(),
+                    entry.len().try_into().unwrap(),
+                    memory_type,
+                ))
             } else {
                 None
             }
@@ -120,13 +124,14 @@ pub fn init() -> BootInfo<MmapIter> {
         .hhdm
         .response()
         .expect("linear physical memory not mapped by bootloader");
+    let offset: usize = response.offset().try_into().unwrap();
+
     assert_eq!(
-        response.offset(),
-        VADDR,
+        offset, VADDR,
         "bad linear physical memory mapping at 0x{:x}",
-        response.offset()
+        offset
     );
-    println!("linear physical memory mapped at 0x{:x}", response.offset());
+    println!("linear physical memory mapped at 0x{:x}", offset);
 
     let boot_time = requests
         .date_at_boot

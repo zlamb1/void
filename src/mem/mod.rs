@@ -36,14 +36,14 @@ impl Display for MemoryType {
 
 #[derive(Clone, Copy, Debug)]
 pub struct MemoryRegion {
-    addr: u64,
-    allocated: u64,
-    len: u64,
+    addr: usize,
+    allocated: usize,
+    len: usize,
     memory_type: MemoryType,
 }
 
 impl MemoryRegion {
-    pub const fn new(addr: u64, len: u64, memory_type: MemoryType) -> Self {
+    pub const fn new(addr: usize, len: usize, memory_type: MemoryType) -> Self {
         Self {
             addr,
             allocated: 0,
@@ -52,11 +52,11 @@ impl MemoryRegion {
         }
     }
 
-    pub fn addr(&self) -> u64 {
+    pub fn addr(&self) -> usize {
         self.addr
     }
 
-    pub fn len(&self) -> u64 {
+    pub fn len(&self) -> usize {
         self.len
     }
 
@@ -89,10 +89,10 @@ static PAGE_MEM: PageMem = PageMem {
     page_mem: UnsafeCell::new(MaybeUninit::uninit()),
 };
 
-pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
+fn build_mmap<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) -> (usize, usize) {
     let mut mmap = MMAP.acquire();
-    let mut max_free_addr: u64 = 0;
-    let mut free_bytes: u64 = 0;
+    let mut max_free_addr: usize = 0;
+    let mut free_bytes: usize = 0;
 
     for entry in (bi.mmap_iter)() {
         println!(
@@ -120,23 +120,26 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
         }
     }
 
+    return (max_free_addr, free_bytes);
+}
+
+pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
+    let (max_free_addr, free_bytes) = build_mmap(bi);
+
     println!("max free address at 0x{:x}", max_free_addr);
     println!(
         "available physical memory: {}",
         fmt::Memory::new(free_bytes)
     );
 
-    let pfns: usize = ((max_free_addr / page::SIZE as u64) + 1)
-        .try_into()
-        .unwrap();
+    let pfns: usize = ((max_free_addr / page::SIZE) + 1).try_into().unwrap();
     let layout = Layout::array::<page::Page>(pfns).unwrap();
 
     println!(
-        "reserving {} for page metadata...",
-        fmt::Memory::new(layout.size() as u64)
+        "reserving {} for page metadata",
+        fmt::Memory::new(layout.size())
     );
 
-    drop(mmap);
     let page_mem: NonNull<page::Page> = allocate_early(layout)
         .expect("failed to allocate page metadata")
         .cast();
@@ -180,7 +183,7 @@ pub fn get_page(pfn: usize) -> &'static page::Page {
     try_get_page(pfn).unwrap()
 }
 
-pub const VADDR: u64 = 0xffff800000000000;
+pub const VADDR: usize = 0xffff800000000000;
 
 #[allow(unused)]
 macro_rules! paddr {
@@ -198,8 +201,8 @@ macro_rules! vaddr {
 pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
     let mut mmap = MMAP.acquire();
     let count = mmap.count;
-    let align = layout.align() as u64;
-    let size = layout.size() as u64;
+    let align = layout.align();
+    let size = layout.size();
     debug_assert!(size > 0);
     for region in &mut mmap.regions[..count] {
         if region.memory_type != MemoryType::Free {

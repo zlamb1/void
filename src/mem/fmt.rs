@@ -1,11 +1,11 @@
 use core::fmt::Display;
 
 pub struct Memory {
-    bytes: u64,
+    bytes: usize,
 }
 
 impl Memory {
-    pub const fn new(bytes: u64) -> Self {
+    pub const fn new(bytes: usize) -> Self {
         Self { bytes }
     }
 }
