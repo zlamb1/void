@@ -1,12 +1,9 @@
-use core::{cell::OnceCell, pin::Pin};
-
 use limine::{date_at_boot, executable_cmdline, framebuffer, hhdm, memmap};
 
 use crate::{
-    boot::BootInfo,
-    gfx::{self, fb::Fb},
-    mem::{MemoryRegion, MemoryType, VADDR},
-    println,
+    boot,
+    gfx::fb::{self, Mask},
+    mem::{MemoryRegion, MemoryType},
     sync::SpinLock,
 };
 
@@ -23,15 +20,13 @@ struct Requests {
 
 static REQUESTS: SpinLock<Requests> = SpinLock::new(Requests {
     start_marker: limine::requests_start_marker!(),
+    cmdline: executable_cmdline::Request::new(),
     fb: framebuffer::Request::new(),
     hhdm: hhdm::Request::new(),
     memmap: memmap::Request::new(),
     date_at_boot: date_at_boot::Request::new(),
-    cmdline: executable_cmdline::Request::new(),
     end_marker: limine::requests_end_marker!(),
 });
-
-static FB_CONSOLE: SpinLock<OnceCell<gfx::fb::Console>> = SpinLock::new(OnceCell::new());
 
 pub struct MmapIter {
     index: usize,
@@ -79,76 +74,92 @@ impl Iterator for MmapIter {
     }
 }
 
-fn find_framebuffer(response: Option<&framebuffer::Response>) -> Option<Fb> {
-    let mut found: Option<&framebuffer::Framebuffer> = None;
-
-    for fb in response?.iter() {
-        if found == None {
-            found.replace(fb);
-        }
-        println!(
-            "framebuffer detected [addr={:?}, width={}, height={}, bpp={}]",
-            fb.address, fb.width, fb.height, fb.bpp
-        );
-    }
-
-    let fb = found?;
-    gfx::fb::Fb::try_new(
-        fb.address.cast(),
-        fb.width.try_into().ok()?,
-        fb.height.try_into().ok()?,
-        fb.pitch.try_into().ok()?,
-        fb.bpp,
-        gfx::fb::Mask::new(fb.red_mask.size, fb.red_mask.shift),
-        gfx::fb::Mask::new(fb.green_mask.size, fb.green_mask.shift),
-        gfx::fb::Mask::new(fb.blue_mask.size, fb.blue_mask.shift),
-    )
+pub struct FbIter {
+    index: usize,
 }
 
-pub fn init() -> BootInfo<MmapIter> {
-    let requests = REQUESTS.acquire();
+impl FbIter {
+    pub fn new() -> Self {
+        Self { index: 0 }
+    }
+}
 
-    let fb = find_framebuffer(requests.fb.response());
+impl Iterator for FbIter {
+    type Item = fb::Desc;
 
-    if let Some(fb) = fb {
-        let console = FB_CONSOLE.acquire();
-        console
-            .set(gfx::fb::Console::new(fb, gfx::font::terminus16_8::FONT))
-            .unwrap();
-        let console = unsafe { Pin::new_unchecked(console.get().unwrap_unchecked().base()) };
-        crate::log::register(console);
-        println!("framebuffer console registered");
-    } else {
-        println!("framebuffer console not supported");
+    fn next(&mut self) -> Option<Self::Item> {
+        let requests = REQUESTS.acquire();
+        let framebuffers = requests.fb.response()?.framebuffers()?;
+
+        if self.index < framebuffers.len() {
+            let fb = unsafe { framebuffers[self.index].as_ref().unwrap() };
+            self.index += 1;
+            Some(fb::Desc {
+                address: fb.address.cast(),
+                width: fb.width.try_into().unwrap(),
+                height: fb.height.try_into().unwrap(),
+                pitch: fb.pitch.try_into().unwrap(),
+                bpp: fb.bpp,
+                red_mask: Mask::new(fb.red_mask.size, fb.red_mask.shift),
+                green_mask: Mask::new(fb.green_mask.size, fb.green_mask.shift),
+                blue_mask: Mask::new(fb.blue_mask.size, fb.blue_mask.shift),
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct BootInfo {
+    cmdline: Option<&'static [u8]>,
+    hhdm: Option<usize>,
+    boot_time: Option<i64>,
+}
+
+impl boot::BootInfo for BootInfo {
+    fn cmdline(&self) -> Option<&'static [u8]> {
+        self.cmdline
     }
 
-    let response = requests
+    fn hhdm(&self) -> Option<usize> {
+        self.hhdm
+    }
+
+    fn boot_time(&self) -> Option<i64> {
+        self.boot_time
+    }
+
+    fn mmap_iter(&self) -> impl Iterator<Item = MemoryRegion> {
+        MmapIter::new()
+    }
+
+    fn fb_iter(&self) -> impl Iterator<Item = fb::Desc> {
+        FbIter::new()
+    }
+}
+
+pub fn init() -> BootInfo {
+    let requests = REQUESTS.acquire();
+
+    let cmdline = requests
+        .cmdline
+        .response()
+        .and_then(|response| response.cmdline())
+        .map(|cmdline| cmdline.to_bytes());
+
+    let hhdm: Option<usize> = requests
         .hhdm
         .response()
-        .expect("linear physical memory not mapped by bootloader");
-    let offset: usize = response.offset().try_into().unwrap();
-
-    assert_eq!(
-        offset, VADDR,
-        "bad linear physical memory mapping at 0x{:x}",
-        offset
-    );
-    println!("linear physical memory mapped at 0x{:x}", offset);
+        .and_then(|response| response.offset().try_into().ok());
 
     let boot_time = requests
         .date_at_boot
         .response()
         .map(|response| response.timestamp());
 
-    let cmdline = requests
-        .cmdline
-        .response()
-        .and_then(|response| response.cmdline());
-
-    cmdline.inspect(|&cmdline| println!("kernel cmdline: {:?}", cmdline));
-
     BootInfo {
+        cmdline,
+        hhdm,
         boot_time,
-        mmap_iter: MmapIter::new,
     }
 }

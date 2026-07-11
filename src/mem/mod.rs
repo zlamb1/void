@@ -89,12 +89,12 @@ static PAGE_MEM: PageMem = PageMem {
     page_mem: UnsafeCell::new(MaybeUninit::uninit()),
 };
 
-fn build_mmap<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) -> (usize, usize) {
+fn build_mmap(bi: &impl BootInfo) -> (usize, usize) {
     let mut mmap = MMAP.acquire();
     let mut max_free_addr: usize = 0;
     let mut free_bytes: usize = 0;
 
-    for entry in (bi.mmap_iter)() {
+    for entry in bi.mmap_iter() {
         println!(
             "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
             entry.addr, entry.len, entry.memory_type,
@@ -123,7 +123,7 @@ fn build_mmap<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) -> (usize, usi
     return (max_free_addr, free_bytes);
 }
 
-pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
+pub fn init(bi: &impl BootInfo) {
     let (max_free_addr, free_bytes) = build_mmap(bi);
 
     println!("max free address at 0x{:x}", max_free_addr);

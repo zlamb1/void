@@ -5,7 +5,7 @@ use super::font::Font;
 use crate::arch;
 use crate::container_of;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Mask {
     size: u8,
     shift: u8,
@@ -19,11 +19,31 @@ impl Mask {
     fn check(&self) -> bool {
         self.size == 8 && self.shift <= 24
     }
+
+    pub const fn size(&self) -> u8 {
+        self.size
+    }
+
+    pub const fn shift(&self) -> u8 {
+        self.shift
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Desc {
+    pub address: *mut u8,
+    pub width: usize,
+    pub height: usize,
+    pub pitch: usize,
+    pub bpp: u16,
+    pub red_mask: Mask,
+    pub green_mask: Mask,
+    pub blue_mask: Mask,
 }
 
 #[derive(Debug)]
 pub struct Fb {
-    addr: *mut u8,
+    address: *mut u8,
     width: usize,
     height: usize,
     pitch: usize,
@@ -35,7 +55,7 @@ pub struct Fb {
 
 impl Fb {
     pub fn try_new(
-        addr: *mut u8,
+        address: *mut u8,
         width: usize,
         height: usize,
         pitch: usize,
@@ -44,7 +64,7 @@ impl Fb {
         green_mask: Mask,
         blue_mask: Mask,
     ) -> Option<Fb> {
-        if addr == null_mut()
+        if address == null_mut()
             || bpp != 32
             || !red_mask.check()
             || !green_mask.check()
@@ -54,7 +74,7 @@ impl Fb {
             return None;
         }
         Some(Fb {
-            addr,
+            address,
             width,
             height,
             pitch,
@@ -148,7 +168,7 @@ impl<'a> State<'a> {
         let words = self.font.width() * self.grid.width;
 
         for y in 0..self.font.height() * self.grid.height {
-            let pixels: *mut u32 = unsafe { self.fb.addr.add(self.fb.pitch * y).cast() };
+            let pixels: *mut u32 = unsafe { self.fb.address.add(self.fb.pitch * y).cast() };
             for x in 0..words {
                 unsafe {
                     pixels.add(x).write_volatile(bg);
@@ -164,7 +184,7 @@ impl<'a> State<'a> {
         let pixel_bytes = self.fb.bpp as usize / 8;
         let bg = self.color_bytes(self.bg);
 
-        let mut dst = self.fb.addr;
+        let mut dst = self.fb.address;
         let mut src = unsafe { dst.add(self.font.height() * pitch) };
 
         for _ in 0..self.fb.height - self.font.height() {
@@ -217,7 +237,7 @@ impl<'a> State<'a> {
         'outer: while index < len {
             let run = min(self.grid.width - self.grid.x, len - index);
             let mut pixel = unsafe {
-                self.fb.addr.add(
+                self.fb.address.add(
                     self.grid.y * self.fb.pitch * self.font.height() + self.grid.x * glyph_stride,
                 )
             };
