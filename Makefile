@@ -19,7 +19,7 @@ RLIB := target/$(RUST_TARGET)/debug/libvoid.a
 OBJS := $(SRCS:%.S=$(O)/%.o)
 DEPS := $(OBJS:.o=.d)
 
-LIMINE_CONF ?= src/limine/limine.conf
+LIMINE_CONF ?= src/boot/limine.conf
 LIMINE_DIR := $(O)/limine-binary
 LIMINE_EXE := $(LIMINE_DIR)/limine
 LIMINE_BIOS_SYS := $(LIMINE_DIR)/limine-bios.sys

@@ -3,5 +3,13 @@
 version = 4
 
 [[package]]
+name = "limine"
+version = "0.1.0"
+source = "git+https://github.com/zlamb1/limine-rs/#4f01b58f0571689aa1ad448985c792aa4b864ab6"
+
+[[package]]
 name = "void"
 version = "0.1.0"
+dependencies = [
+ "limine",
+]

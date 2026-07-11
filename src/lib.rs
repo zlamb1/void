@@ -13,7 +13,6 @@ pub mod boot;
 pub mod date;
 pub mod gfx;
 pub mod lending;
-pub mod limine;
 pub mod list;
 pub mod log;
 pub mod mem;
@@ -65,7 +64,7 @@ fn log_boot_time(bt: &Option<i64>) {
 pub extern "C" fn kernel_main() -> ! {
     log::init();
     log::println!("booting...");
-    let bi = limine::init();
+    let bi = boot::init();
     log_boot_time(&bi.boot_time);
     mem::init(&bi);
     loop {}

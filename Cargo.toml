@@ -17,3 +17,6 @@ opt-level = "z"
 lto = true
 panic = "abort"
 strip = true
+
+[dependencies]
+limine = { git = "https://github.com/zlamb1/limine-rs/", version = "0.1.0" }
