@@ -136,6 +136,7 @@ pub fn init<I: Iterator<Item = MemoryRegion>>(bi: &BootInfo<I>) {
         fmt::Memory::new(layout.size() as u64)
     );
 
+    drop(mmap);
     let page_mem: NonNull<page::Page> = allocate_early(layout)
         .expect("failed to allocate page metadata")
         .cast();

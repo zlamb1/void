@@ -93,15 +93,15 @@ qemu: $(BIOS_IMG)
 	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm
 
 gdb: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
 	$(GDB) $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
 	kill -2 $$QEMU_PID
 
 lldb: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
 	QEMU_PID=$$!; \
-	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b _start' -o 'c'
+	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
 	kill -2 $$QEMU_PID
 
 limine-clean:

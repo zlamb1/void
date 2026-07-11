@@ -119,6 +119,7 @@ impl<'a> State<'a> {
         self.grid.y += 1;
         if self.grid.y == self.grid.height {
             self.grid.y = self.grid.height - 1;
+            self.scroll();
         }
     }
 
@@ -158,10 +159,53 @@ impl<'a> State<'a> {
         self.sync();
     }
 
+    fn scroll(&mut self) {
+        let pitch = self.fb.pitch;
+        let pixel_bytes = self.fb.bpp as usize / 8;
+        let bg = self.color_bytes(self.bg);
+
+        let mut dst = self.fb.addr;
+        let mut src = unsafe { dst.add(self.font.height() * pitch) };
+
+        for _ in 0..self.fb.height - self.font.height() {
+            for x in 0..self.fb.width * pixel_bytes {
+                unsafe {
+                    dst.add(x).write_volatile(src.add(x).read_volatile());
+                }
+            }
+
+            unsafe {
+                dst = dst.add(pitch);
+                src = src.add(pitch);
+            }
+        }
+
+        for _ in 0..self.font.height() {
+            let mut pixel = dst;
+
+            for _ in 0..self.fb.width {
+                for i in 0..pixel_bytes {
+                    unsafe {
+                        pixel.add(i).write_volatile(bg[i]);
+                    }
+                }
+                unsafe {
+                    pixel = pixel.add(pixel_bytes);
+                }
+            }
+
+            unsafe {
+                dst = dst.add(pitch);
+            }
+        }
+    }
+
     fn write_str(&mut self, buf: &[u8]) {
         if self.grid.width == 0 || self.grid.height == 0 {
             return;
         }
+
+        let len = buf.len();
 
         let p_bytes = self.fb.bpp as usize / 8;
         let fg = self.color_bytes(self.fg);
@@ -170,8 +214,8 @@ impl<'a> State<'a> {
 
         let mut index: usize = 0;
 
-        'outer: while index < buf.len() {
-            let run = min(self.grid.width - self.grid.x, buf.len() - index);
+        'outer: while index < len {
+            let run = min(self.grid.width - self.grid.x, len - index);
             let mut pixel = unsafe {
                 self.fb.addr.add(
                     self.grid.y * self.fb.pitch * self.font.height() + self.grid.x * glyph_stride,
