@@ -1,6 +1,6 @@
 use core::{cell::OnceCell, pin::Pin};
 
-use limine::{date_at_boot, framebuffer, hhdm, memmap};
+use limine::{date_at_boot, executable_cmdline, framebuffer, hhdm, memmap};
 
 use crate::{
     boot::BootInfo,
@@ -17,6 +17,7 @@ struct Requests {
     hhdm: hhdm::Request,
     memmap: memmap::Request,
     date_at_boot: date_at_boot::Request,
+    cmdline: executable_cmdline::Request,
     end_marker: [u64; 2],
 }
 
@@ -26,6 +27,7 @@ static REQUESTS: SpinLock<Requests> = SpinLock::new(Requests {
     hhdm: hhdm::Request::new(),
     memmap: memmap::Request::new(),
     date_at_boot: date_at_boot::Request::new(),
+    cmdline: executable_cmdline::Request::new(),
     end_marker: limine::requests_end_marker!(),
 });
 
@@ -137,6 +139,13 @@ pub fn init() -> BootInfo<MmapIter> {
         .date_at_boot
         .response()
         .map(|response| response.timestamp());
+
+    let cmdline = requests
+        .cmdline
+        .response()
+        .and_then(|response| response.cmdline());
+
+    cmdline.inspect(|&cmdline| println!("kernel cmdline: {:?}", cmdline));
 
     BootInfo {
         boot_time,

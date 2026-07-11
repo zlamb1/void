@@ -143,18 +143,18 @@ pub fn write(args: fmt::Arguments, newline: bool) {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => {
+    ($($arg:tt)*) => {{
         let args = core::format_args!($($arg)*);
         $crate::log::write(args, false);
-    };
+    }};
 }
 
 #[macro_export]
 macro_rules! println {
-    ($($arg:tt)*) => {
+    ($($arg:tt)*) => {{
         let args = core::format_args!($($arg)*);
         $crate::log::write(args, true);
-    };
+    }};
 }
 
 #[allow(unused_imports)]
