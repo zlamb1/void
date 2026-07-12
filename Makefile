@@ -14,8 +14,16 @@ LD_SCRIPT := src/$(TARGET)/link.ld
 
 RUST_TARGET := $(TARGET)-unknown-void
 
-SRCS := src/$(TARGET)/_startup.S
+RFLAGS ?=
+
+ifdef RELEASE
+RFLAGS += --release
+RLIB := target/$(RUST_TARGET)/release/libvoid.a
+else
 RLIB := target/$(RUST_TARGET)/debug/libvoid.a
+endif
+
+SRCS := src/$(TARGET)/_startup.S
 OBJS := $(SRCS:%.S=$(O)/%.o)
 DEPS := $(OBJS:.o=.d)
 
@@ -66,7 +74,7 @@ $(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
-	$(CARGO) build -Z json-target-spec --target targets/$(RUST_TARGET).json
+	$(CARGO) build -Z json-target-spec --target targets/$(RUST_TARGET).json $(RFLAGS)
 
 $(O)/%.o: %.S
 	mkdir -p $(dir $@)

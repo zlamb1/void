@@ -74,10 +74,10 @@ mod raw {
             }
         }
 
-        pub unsafe fn link(this: *const Self, head: *const Self, sentinel: *const Self) {
+        pub unsafe fn link(this: *const Self, head: *const Self, _sentinel: *const Self) {
             debug_assert_ne!(this, null());
             debug_assert_ne!(head, null());
-            debug_assert_ne!(sentinel, null());
+            debug_assert_ne!(_sentinel, null());
             #[cfg(debug_assertions)]
             debug_assert_eq!(Self::sentinel(this), null());
             let (prev, next) = unsafe { (Self::prev(this), Self::next(this)) };
@@ -89,13 +89,13 @@ mod raw {
             Self::set_next(prev, this);
             Self::set_prev(next, this);
             #[cfg(debug_assertions)]
-            Self::set_sentinel(this, sentinel);
+            Self::set_sentinel(this, _sentinel);
         }
 
-        pub unsafe fn unlink(this: *const Self, sentinel: *const Self) {
+        pub unsafe fn unlink(this: *const Self, _sentinel: *const Self) {
             debug_assert_ne!(this, null());
             #[cfg(debug_assertions)]
-            debug_assert_eq!(Self::sentinel(this), sentinel);
+            debug_assert_eq!(Self::sentinel(this), _sentinel);
             let (prev, next) = unsafe { (Self::prev(this), Self::next(this)) };
             debug_assert_ne!(prev, null());
             debug_assert_ne!(next, null());
