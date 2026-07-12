@@ -1,4 +1,4 @@
-use limine::{date_at_boot, executable_cmdline, framebuffer, hhdm, memmap};
+use limine::{date_at_boot, executable_cmdline, framebuffer, hhdm, memmap, mp};
 
 use crate::{
     boot,
@@ -15,6 +15,7 @@ struct Requests {
     memmap: memmap::Request,
     date_at_boot: date_at_boot::Request,
     cmdline: executable_cmdline::Request,
+    mp: mp::Request,
     end_marker: [u64; 2],
 }
 
@@ -25,6 +26,7 @@ static REQUESTS: SpinLock<Requests> = SpinLock::new(Requests {
     hhdm: hhdm::Request::new(),
     memmap: memmap::Request::new(),
     date_at_boot: date_at_boot::Request::new(),
+    mp: mp::Request::new(),
     end_marker: limine::requests_end_marker!(),
 });
 
@@ -136,6 +138,22 @@ impl boot::BootInfo for BootInfo {
     fn fb_iter(&self) -> impl Iterator<Item = fb::Desc> {
         FbIter::new()
     }
+
+    fn mp_start(&self, mp_main: fn(processor_id: u64) -> !) {
+        let requests = REQUESTS.acquire();
+        if let Some(response) = requests.mp.response() {
+            for mp in response.iter() {
+                mp.set_extra_argument(mp_main as u64);
+                mp.set_goto_address(limine_mp_entry);
+            }
+        }
+    }
+}
+
+extern "C" fn limine_mp_entry(cpu: *const mp::Cpu) {
+    let cpu = unsafe { &*cpu };
+    let mp_main: fn(u64) -> ! = unsafe { core::mem::transmute(cpu.extra_argument()) };
+    mp_main(cpu.processor_id() as u64);
 }
 
 pub fn init() -> BootInfo {

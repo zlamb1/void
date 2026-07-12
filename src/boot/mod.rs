@@ -20,6 +20,7 @@ pub trait BootInfo {
     fn boot_time(&self) -> Option<i64>;
     fn mmap_iter(&self) -> impl Iterator<Item = MemoryRegion>;
     fn fb_iter(&self) -> impl Iterator<Item = fb::Desc>;
+    fn mp_start(&self, mp_main: fn(processor_id: u64) -> !);
 }
 
 struct Consoles {

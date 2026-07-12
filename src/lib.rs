@@ -8,6 +8,8 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use crate::boot::BootInfo;
+
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
 pub mod boot;
@@ -44,10 +46,16 @@ fn panic(pi: &PanicInfo) -> ! {
     }
 }
 
+fn mp_main(processor_id: u64) -> ! {
+    println!("running mp{}", processor_id);
+    loop {}
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
     log::init();
-    let bi = boot::init();
-    mem::init(&bi);
+    let boot_info = boot::init();
+    mem::init(&boot_info);
+    boot_info.mp_start(mp_main);
     loop {}
 }

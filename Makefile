@@ -98,7 +98,7 @@ $(O):
 	mkdir $@
 
 qemu: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm -smp sockets=1,cores=4,threads=1
 
 gdb: $(BIOS_IMG)
 	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
