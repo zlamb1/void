@@ -21,8 +21,7 @@ impl Alloc {
         let page_layout = Layout::from_size_align(page::SIZE, page::SIZE)
             .expect("page size must be valid for layout");
 
-        while let Some(vptr) = super::allocate_early(page_layout) {
-            let ptr = vptr.as_ptr().addr().checked_sub(super::VADDR).unwrap() as *mut ();
+        while let Some(ptr) = super::allocate_early_phys(page_layout) {
             let pfn = super::get_pfn(ptr);
             let page = super::get_page(pfn);
             self.free_page(page);

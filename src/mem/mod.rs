@@ -204,7 +204,7 @@ macro_rules! vaddr {
     };
 }
 
-pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
+pub fn allocate_early_phys(layout: Layout) -> Option<*mut ()> {
     let mut mmap = MMAP.acquire();
     let count = mmap.count;
     let align = layout.align();
@@ -218,18 +218,18 @@ pub fn allocate_early(layout: Layout) -> Option<NonNull<u8>> {
         let Some(start) = region.addr.checked_add(region.allocated) else {
             continue;
         };
-        let aligned_start = start.next_multiple_of(align);
-        let pad = aligned_start - start;
+        let paddr = start.next_multiple_of(align);
+        let pad = paddr - start;
         let len = region.len - region.allocated;
         if pad >= len || size > len - pad {
             continue;
         }
-        let Some(vaddr) = vaddr!(aligned_start) else {
-            println!("allocate_early: bad physical address 0x{:x}", aligned_start);
-            continue;
-        };
         region.allocated += pad + size;
-        return Some(unsafe { NonNull::new_unchecked(vaddr as *mut u8) });
+        return Some(paddr as *mut ());
     }
     None
+}
+pub fn allocate_early(layout: Layout) -> Option<NonNull<()>> {
+    let ptr = allocate_early_phys(layout)?;
+    Some(unsafe { NonNull::new_unchecked(vaddr!(ptr.addr()).unwrap() as *mut ()) })
 }
