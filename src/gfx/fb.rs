@@ -73,6 +73,7 @@ impl Fb {
         {
             return None;
         }
+        address.addr().checked_add(pitch.checked_mul(height)?)?;
         Some(Fb {
             address,
             width,
