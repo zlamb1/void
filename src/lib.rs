@@ -13,7 +13,6 @@ pub mod arch;
 pub mod boot;
 pub mod date;
 pub mod gfx;
-pub mod lending;
 pub mod list;
 pub mod log;
 pub mod mem;
