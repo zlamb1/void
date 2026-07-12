@@ -95,22 +95,25 @@ fn build_mmap(bi: &impl BootInfo) -> (usize, usize) {
     let mut free_bytes: usize = 0;
 
     for entry in bi.mmap_iter() {
+        let count = mmap.count;
+        assert!(mmap.count < mmap.regions.len(), "memory map full");
+
+        mmap.regions[count] = entry;
+        mmap.count += 1;
+
         println!(
             "firmware reported memory region [addr=0x{:x}, len=0x{:x}, type={}]",
             entry.addr, entry.len, entry.memory_type,
         );
+
         if entry.len() == 0 {
             continue;
         }
+
         if entry.memory_type == MemoryType::Free
             || entry.memory_type == MemoryType::Reclaimable
             || entry.memory_type == MemoryType::AcpiReclaimable
         {
-            assert!(mmap.count < mmap.regions.len(), "memory map full");
-            let count = mmap.count;
-            mmap.regions[count] = entry;
-            mmap.count += 1;
-
             let end_addr = entry.addr + entry.len - 1;
             if end_addr > max_free_addr {
                 max_free_addr = end_addr;
