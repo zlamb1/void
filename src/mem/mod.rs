@@ -1,3 +1,4 @@
+pub mod alloc;
 pub mod fmt;
 pub mod page;
 
@@ -164,6 +165,8 @@ pub fn init(bi: &impl BootInfo) {
         #[cfg(debug_assertions)]
         PAGE_MEM.init.set(true);
     }
+
+    alloc::ALLOC.with_mut(|alloc| alloc.init());
 }
 
 pub fn get_pfn(ptr: *const ()) -> usize {

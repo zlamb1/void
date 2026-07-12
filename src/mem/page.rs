@@ -10,8 +10,10 @@ pub const LOG2_SIZE: usize = 12;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Type {
-    Frame = 0,
-    Slab = 1,
+    None = 0,
+    Free = 1,
+    Slab = 2,
+    Frame = 3,
 }
 
 #[derive(Debug)]
@@ -29,7 +31,7 @@ impl<'a> Flags<'a> {
     }
 
     pub fn page_type(&self) -> Type {
-        unsafe { core::mem::transmute(self.flags() & 1) }
+        unsafe { core::mem::transmute(self.flags() & 3u8) }
     }
 
     fn swap(&self, compute: impl Fn(u8) -> u8) {
@@ -51,7 +53,7 @@ impl<'a> Flags<'a> {
 
     pub fn set_page_type(&mut self, page_type: Type) {
         let page_type = page_type as u8;
-        self.swap(|flags| (flags & !1u8) | page_type);
+        self.swap(|flags| (flags & !3u8) | page_type);
     }
 }
 
@@ -68,7 +70,7 @@ pub struct Page {
 impl Page {
     pub const fn new() -> Self {
         Self {
-            flags: AtomicU8::new(0),
+            flags: AtomicU8::new(Type::None as u8),
             pointer: Cell::new(null_mut()),
         }
     }
@@ -87,7 +89,13 @@ impl Page {
 
     /// SAFETY:
     /// See [`Page::pointer`].
-    pub unsafe fn set_pointer(&self, new_pointer: *mut ()) {
+    pub unsafe fn set_pointer(&self, new_pointer: *const ()) {
+        self.pointer.set(new_pointer.cast_mut());
+    }
+
+    /// SAFETY:
+    /// See [`Page::pointer`].
+    pub unsafe fn set_pointer_mut(&self, new_pointer: *mut ()) {
         self.pointer.set(new_pointer);
     }
 }
