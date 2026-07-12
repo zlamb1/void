@@ -67,7 +67,7 @@ impl MemoryRegion {
 
 struct MemoryMap {
     count: usize,
-    regions: [MemoryRegion; 64],
+    regions: [MemoryRegion; 256],
 }
 
 struct PageMem {
@@ -80,7 +80,7 @@ unsafe impl Sync for PageMem {}
 
 static MMAP: SpinLock<MemoryMap> = SpinLock::new(MemoryMap {
     count: 0,
-    regions: [MemoryRegion::new(0, 0, MemoryType::Reserved); 64],
+    regions: [MemoryRegion::new(0, 0, MemoryType::Reserved); _],
 });
 
 static PAGE_MEM: PageMem = PageMem {
