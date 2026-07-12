@@ -166,7 +166,7 @@ pub fn init(bi: &impl BootInfo) {
         PAGE_MEM.init.set(true);
     }
 
-    alloc::ALLOC.with_mut(|alloc| alloc.init());
+    alloc::ALLOC.with_mut(|alloc| alloc.init(page_mem));
 }
 
 pub fn get_pfn(ptr: *const ()) -> usize {

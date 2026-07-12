@@ -1,12 +1,16 @@
-use core::{alloc::Layout, ptr::null};
+use core::{
+    alloc::Layout,
+    ptr::{NonNull, null, null_mut},
+};
 
-use crate::{println, sync::SpinLock};
+use crate::{mem::VADDR, println, sync::SpinLock};
 
 use super::page;
 
 pub struct Alloc {
     pages: usize,
     freelist: Option<&'static page::Page>,
+    page_mem: Option<NonNull<page::Page>>,
 }
 
 impl Alloc {
@@ -14,10 +18,13 @@ impl Alloc {
         Self {
             pages: 0,
             freelist: None,
+            page_mem: None,
         }
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&mut self, page_mem: NonNull<page::Page>) {
+        self.page_mem = Some(page_mem);
+
         let page_layout = Layout::from_size_align(page::SIZE, page::SIZE)
             .expect("page size must be valid for layout");
 
@@ -66,6 +73,32 @@ impl Alloc {
 
         self.pages += 1;
         self.freelist = Some(page);
+    }
+}
+
+unsafe impl Send for Alloc {}
+
+pub struct GlobalAlloc;
+
+unsafe impl core::alloc::GlobalAlloc for GlobalAlloc {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if layout.size() > page::SIZE || layout.align() > page::SIZE {
+            return null_mut();
+        }
+        let mut alloc = ALLOC.acquire();
+        let Some(page) = alloc.alloc_page() else {
+            return null_mut();
+        };
+        let page = &raw const *page;
+        let pfn = unsafe { page.offset_from_unsigned(alloc.page_mem.unwrap().as_ptr()) };
+        (pfn * page::SIZE).checked_add(VADDR).unwrap() as *mut u8
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
+        let paddr = ptr.addr().checked_sub(VADDR).unwrap();
+        let pfn = super::get_pfn(paddr as *mut ());
+        let page = super::get_page(pfn);
+        ALLOC.with_mut(|alloc| alloc.free_page(page));
     }
 }
 
