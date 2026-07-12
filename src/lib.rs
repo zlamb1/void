@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(unsafe_pinned)]
+#![feature(bstr)]
 
 use core::{
     panic::PanicInfo,
