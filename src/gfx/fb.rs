@@ -181,14 +181,19 @@ impl<'a> State<'a> {
     }
 
     fn scroll(&mut self) {
-        let pitch = self.fb.pitch;
+        // NOTE: Reading WC memory is a no-go due to it being uncacheable.
+        // For now, opt for clearing the framebuffer instead. The
+        // scroll strategy can change when a backbuffer can be allocated.
+        self.clear();
+
+        /*let pitch = self.fb.pitch;
         let pixel_bytes = self.fb.bpp as usize / 8;
         let bg = self.color_bytes(self.bg);
 
         let mut dst = self.fb.address;
-        let mut src = unsafe { dst.add(self.font.height() * pitch) };
+        let mut src = unsafe { dst.add(self.font.height() * pitch) };*/
 
-        for _ in 0..self.fb.height - self.font.height() {
+        /* for _ in 0..self.fb.height - self.font.height() {
             for x in 0..self.fb.width * pixel_bytes {
                 unsafe {
                     dst.add(x).write_volatile(src.add(x).read_volatile());
@@ -218,7 +223,7 @@ impl<'a> State<'a> {
             unsafe {
                 dst = dst.add(pitch);
             }
-        }
+        }*/
     }
 
     fn write_str(&mut self, buf: &[u8]) {
