@@ -24,4 +24,4 @@ impl PerCpu {
     }
 }
 
-unsafe impl Sync for PerCpu {}
+unsafe impl Send for PerCpu {}

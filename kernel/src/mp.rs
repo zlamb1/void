@@ -1,19 +1,19 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{arch, mem::boxed::Box, per_cpu::PerCpu, println};
+use crate::{arch, mem::boxed::Box, per_cpu::PerCpu, println, sync::once::Once};
 
 pub const BSP_CPU_ID: usize = 0;
 
-static mut BSP_PER_CPU: PerCpu = PerCpu::new(BSP_CPU_ID);
+static BSP_PER_CPU: Once<PerCpu> = Once::new(PerCpu::new(BSP_CPU_ID));
 static CPU_COUNT: AtomicUsize = AtomicUsize::new(1);
 
 pub fn init() {
-    unsafe {
-        #[allow(static_mut_refs)]
-        let per_cpu = &mut BSP_PER_CPU;
-        per_cpu.init();
-        arch::set_per_cpu(per_cpu);
-    }
+    BSP_PER_CPU
+        .call_once(|per_cpu| {
+            per_cpu.init();
+            arch::set_per_cpu(per_cpu);
+        })
+        .expect("BSP already initialized");
 }
 
 pub fn prelude(_: u64) -> ! {

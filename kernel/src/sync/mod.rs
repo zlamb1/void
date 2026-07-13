@@ -6,6 +6,7 @@ use core::{
 
 use crate::arch;
 
+pub mod once;
 pub mod pin;
 pub mod raw;
 pub mod ticket;
