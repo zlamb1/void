@@ -57,6 +57,9 @@ fn panic(pi: &PanicInfo) -> ! {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
+    // SAFETY: This must come before any locking
+    // or other code that uses CPU ID. It loads
+    // a per-cpu structure for the BSP.
     mp::init();
     log::init();
     let boot_info = boot::init();
