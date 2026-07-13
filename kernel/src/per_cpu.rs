@@ -23,3 +23,5 @@ impl PerCpu {
         self.cpu_id
     }
 }
+
+unsafe impl Sync for PerCpu {}
