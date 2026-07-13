@@ -1,13 +1,19 @@
 TARGET ?= x86_64
+O ?= build
+
+ifdef RELEASE
+PDIR := $(O)/release
+else
+PDIR := $(O)/debug
+endif
 
 KRNL_DIR ?= kernel
 KRNL_SRC ?= $(KRNL_DIR)/src
-O ?= build
-BIN ?= $(O)/void.bin
-KSYMS ?= $(O)/ksyms.S
-PSEUDO_BIN ?= $(O)/void.pseudo.bin
-BIOS_IMG ?= $(O)/void.bios.img
-UEFI_IMG ?= $(O)/void.uefi.img
+BIN ?= $(PDIR)/void.bin
+KSYMS ?= $(PDIR)/ksyms.S
+PSEUDO_BIN ?= $(PDIR)/void.pseudo.bin
+BIOS_IMG ?= $(PDIR)/void.bios.img
+UEFI_IMG ?= $(PDIR)/void.uefi.img
 CROSS_CC ?= $(TARGET)-elf-gcc
 CARGO ?= cargo
 QEMU ?= qemu-system-x86_64
@@ -74,14 +80,14 @@ $(BIOS_IMG): $(BIN) $(LIMINE_CONF) $(LIMINE_EXE)
 	parted $@ -s -- mklabel msdos mkpart primary fat32 64MiB -1s set 1 boot on
 	$(LIMINE_EXE) bios-install $@
 
-$(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) $(KSYMS) | $(O)
+$(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) $(KSYMS) | $(PDIR)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) $(KSYMS) -o $@
 
 $(KSYMS): $(PSEUDO_BIN)
 	$(CARGO) run --manifest-path build-tools/Cargo.toml \
 			     -- $(PSEUDO_BIN) $@
 
-$(PSEUDO_BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
+$(PSEUDO_BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(PDIR)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
@@ -106,6 +112,9 @@ $(LIMINE_TAR): $(LIMINE_TAR_GZ)
 $(LIMINE_TAR_GZ): | $(O)
 	wget https://github.com/Limine-Bootloader/Limine/releases/download/v$(LIMINE_VER)/limine-binary.tar.gz -O $@
 	echo '205f98218bb0d5a8ccabf5f903dba9d935f7b0aa66f4262a99b0f5a8e668ec6d  $@' | sha256sum -c -
+
+$(PDIR):
+	mkdir $@
 
 $(O):
 	mkdir $@
