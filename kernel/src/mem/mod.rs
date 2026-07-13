@@ -1,4 +1,5 @@
 pub mod alloc;
+pub mod boxed;
 pub mod fmt;
 pub mod page;
 pub mod slab;

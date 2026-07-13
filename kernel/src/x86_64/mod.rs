@@ -1,6 +1,9 @@
 use core::arch::asm;
 
+use crate::per_cpu::PerCpu;
+
 mod boot;
+mod msr;
 
 pub fn halt() {
     unsafe {
@@ -44,4 +47,16 @@ pub fn spin_hint() {
 
 pub fn sfence() {
     unsafe { asm!("sfence", options(nomem, nostack)) }
+}
+
+pub fn set_per_cpu(per_cpu: &'static PerCpu) {
+    msr::wrmsr(msr::Msr::GsBase, (&raw const *per_cpu).addr() as u64);
+}
+
+pub fn get_per_cpu() -> &'static PerCpu {
+    unsafe {
+        let per_cpu: *const PerCpu;
+        asm!("mov {}, gs:[0]", out(reg) per_cpu, options(nostack));
+        &*per_cpu
+    }
 }

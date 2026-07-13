@@ -8,7 +8,7 @@ use core::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use crate::boot::BootInfo;
+use crate::{boot::BootInfo, mem::boxed::Box, per_cpu::PerCpu};
 
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
@@ -19,6 +19,7 @@ pub mod gfx;
 pub mod list;
 pub mod log;
 pub mod mem;
+pub mod per_cpu;
 pub mod ptr;
 pub mod sync;
 
@@ -61,6 +62,10 @@ fn mp_prelude(_: u64) -> ! {
 }
 
 fn mp_main(cpu_id: usize) -> ! {
+    let mut per_cpu = Box::new(PerCpu::new(cpu_id));
+    per_cpu.init();
+    let per_cpu = Box::leak(per_cpu);
+    arch::set_per_cpu(per_cpu);
     println!("running mp{}", cpu_id);
     loop {}
 }
