@@ -1,11 +1,14 @@
 .text
 
 .global _start
+.type _start, @function
 
 _start:
     cli
     call _init
-    jmp kernel_main
+    mov $0, %rbp
+    call kernel_main
+.size _start, . - _start
 
 _init:
     mov $_boot_idt, %rdi

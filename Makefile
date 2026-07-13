@@ -4,6 +4,8 @@ KRNL_DIR ?= kernel
 KRNL_SRC ?= $(KRNL_DIR)/src
 O ?= build
 BIN ?= $(O)/void.bin
+KSYMS ?= $(O)/ksyms.S
+PSEUDO_BIN ?= $(O)/void.pseudo.bin
 BIOS_IMG ?= $(O)/void.bios.img
 UEFI_IMG ?= $(O)/void.uefi.img
 CROSS_CC ?= $(TARGET)-elf-gcc
@@ -25,7 +27,7 @@ else
 RLIB := $(KRNL_DIR)/target/$(RUST_TARGET)/debug/libvoid.a
 endif
 
-SRCS := $(KRNL_SRC)/$(TARGET)/_startup.S
+SRCS := $(KRNL_SRC)/$(TARGET)/_startup.S $(KRNL_SRC)/$(TARGET)/ksyms.S
 OBJS := $(SRCS:%.S=$(O)/%.o)
 DEPS := $(OBJS:.o=.d)
 
@@ -72,7 +74,14 @@ $(BIOS_IMG): $(BIN) $(LIMINE_CONF) $(LIMINE_EXE)
 	parted $@ -s -- mklabel msdos mkpart primary fat32 64MiB -1s set 1 boot on
 	$(LIMINE_EXE) bios-install $@
 
-$(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
+$(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) $(KSYMS) | $(O)
+	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) $(KSYMS) -o $@
+
+$(KSYMS): $(PSEUDO_BIN)
+	$(CARGO) run --manifest-path build-tools/Cargo.toml \
+			     -- $(PSEUDO_BIN) $@
+
+$(PSEUDO_BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
@@ -122,6 +131,7 @@ limine-clean:
 
 clean:
 	$(CARGO) clean --manifest-path $(KRNL_DIR)/Cargo.toml
-	rm -f $(BIOS_IMG) $(UEFI_IMG) $(BIN) $(OBJS) $(DEPS)
+	$(CARGO) clean --manifest-path build-tools/Cargo.toml
+	rm -f $(BIOS_IMG) $(UEFI_IMG) $(BIN) $(KSYMS) $(PSEUDO_BIN) $(OBJS) $(DEPS)
 
 -include $(DEPS)

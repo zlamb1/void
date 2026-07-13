@@ -12,6 +12,7 @@ use crate::boot::BootInfo;
 
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
+pub mod backtrace;
 pub mod boot;
 pub mod date;
 pub mod gfx;
@@ -31,6 +32,7 @@ fn panic(pi: &PanicInfo) -> ! {
             arch::halt();
         }
     }
+
     log::clear();
     println!("panic: {}", pi.message());
     if let Some(location) = pi.location() {
@@ -41,6 +43,11 @@ fn panic(pi: &PanicInfo) -> ! {
             location.column()
         );
     }
+
+    println!("");
+    println!("backtrace:");
+    backtrace::backtrace();
+
     loop {
         arch::halt();
     }
