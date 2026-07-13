@@ -1,5 +1,7 @@
 TARGET ?= x86_64
 
+KRNL_DIR ?= kernel
+KRNL_SRC ?= $(KRNL_DIR)/src
 O ?= build
 BIN ?= $(O)/void.bin
 BIOS_IMG ?= $(O)/void.bios.img
@@ -10,7 +12,7 @@ QEMU ?= qemu-system-x86_64
 GDB ?= gdb
 LLDB ?= lldb
 
-LD_SCRIPT := src/$(TARGET)/link.ld
+LD_SCRIPT := $(KRNL_SRC)/$(TARGET)/link.ld
 
 RUST_TARGET := $(TARGET)-unknown-void
 
@@ -18,16 +20,16 @@ RFLAGS ?=
 
 ifdef RELEASE
 RFLAGS += --release
-RLIB := target/$(RUST_TARGET)/release/libvoid.a
+RLIB := $(KRNL_DIR)/target/$(RUST_TARGET)/release/libvoid.a
 else
-RLIB := target/$(RUST_TARGET)/debug/libvoid.a
+RLIB := $(KRNL_DIR)/target/$(RUST_TARGET)/debug/libvoid.a
 endif
 
-SRCS := src/$(TARGET)/_startup.S
+SRCS := $(KRNL_SRC)/$(TARGET)/_startup.S
 OBJS := $(SRCS:%.S=$(O)/%.o)
 DEPS := $(OBJS:.o=.d)
 
-LIMINE_CONF ?= src/boot/limine.conf
+LIMINE_CONF ?= $(KRNL_SRC)/boot/limine.conf
 LIMINE_DIR := $(O)/limine-binary
 LIMINE_EXE := $(LIMINE_DIR)/limine
 LIMINE_BIOS_SYS := $(LIMINE_DIR)/limine-bios.sys
@@ -74,7 +76,9 @@ $(BIN): $(RLIB) $(OBJS) $(LD_SCRIPT) | $(O)
 	$(CROSS_CC) -T $(LD_SCRIPT) -Wl,-z noexecstack -nostdlib $(OBJS) $(RLIB) -o $@
 
 $(RLIB):
-	$(CARGO) build -Z json-target-spec --target targets/$(RUST_TARGET).json $(RFLAGS)
+	cd $(KRNL_DIR); \
+	$(CARGO) build -Z json-target-spec \
+				   --target targets/$(RUST_TARGET).json $(RFLAGS)
 
 $(O)/%.o: %.S
 	mkdir -p $(dir $@)
@@ -117,7 +121,7 @@ limine-clean:
 	rm -rf $(LIMINE_DIR)
 
 clean:
-	$(CARGO) clean
+	$(CARGO) clean --manifest-path $(KRNL_DIR)/Cargo.toml
 	rm -f $(BIOS_IMG) $(UEFI_IMG) $(BIN) $(OBJS) $(DEPS)
 
 -include $(DEPS)
