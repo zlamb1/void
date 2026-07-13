@@ -5,7 +5,7 @@
 
 use core::{
     panic::PanicInfo,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use crate::boot::BootInfo;
@@ -53,8 +53,15 @@ fn panic(pi: &PanicInfo) -> ! {
     }
 }
 
-fn mp_main(processor_id: u64) -> ! {
-    println!("running mp{}", processor_id);
+static NEXT_CPU: AtomicUsize = AtomicUsize::new(1);
+
+fn mp_prelude(_: u64) -> ! {
+    let cpu_id = NEXT_CPU.fetch_add(1, Ordering::Relaxed);
+    mp_main(cpu_id);
+}
+
+fn mp_main(cpu_id: usize) -> ! {
+    println!("running mp{}", cpu_id);
     loop {}
 }
 
@@ -63,6 +70,6 @@ pub extern "C" fn kernel_main() -> ! {
     log::init();
     let boot_info = boot::init();
     mem::init(&boot_info);
-    boot_info.mp_start(mp_main);
-    loop {}
+    boot_info.mp_start(mp_prelude);
+    mp_main(0);
 }
