@@ -1,4 +1,5 @@
 use core::{
+    alloc::Layout,
     cell::Cell,
     ptr::null_mut,
     sync::atomic::{AtomicU8, Ordering},
@@ -6,6 +7,11 @@ use core::{
 
 pub const SIZE: usize = 4096;
 pub const LOG2_SIZE: usize = 12;
+
+pub const LAYOUT: Layout = match Layout::from_size_align(SIZE, SIZE) {
+    Ok(x) => x,
+    Err(_) => panic!("page layout is invalid"),
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]

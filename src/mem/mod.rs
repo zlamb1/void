@@ -1,6 +1,7 @@
 pub mod alloc;
 pub mod fmt;
 pub mod page;
+pub mod slab;
 
 #[cfg(debug_assertions)]
 use core::cell::Cell;

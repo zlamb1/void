@@ -25,10 +25,7 @@ impl Alloc {
     pub fn init(&mut self, page_mem: NonNull<page::Page>) {
         self.page_mem = Some(page_mem);
 
-        let page_layout = Layout::from_size_align(page::SIZE, page::SIZE)
-            .expect("page size must be valid for layout");
-
-        while let Some(ptr) = super::allocate_early_phys(page_layout) {
+        while let Some(ptr) = super::allocate_early_phys(page::LAYOUT) {
             let pfn = super::get_pfn(ptr);
             let page = super::get_page(pfn);
             self.free_page(page);
@@ -78,9 +75,9 @@ impl Alloc {
 
 unsafe impl Send for Alloc {}
 
-pub struct GlobalAlloc;
+pub struct PageAlloc;
 
-unsafe impl core::alloc::GlobalAlloc for GlobalAlloc {
+unsafe impl core::alloc::GlobalAlloc for PageAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if layout.size() > page::SIZE || layout.align() > page::SIZE {
             return null_mut();
