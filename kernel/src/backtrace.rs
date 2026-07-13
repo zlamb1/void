@@ -14,13 +14,46 @@ unsafe extern "C" {
 }
 
 #[repr(C)]
-struct Symbol {
+pub struct Symbol {
     address: usize,
     size: usize,
     name: *const c_char,
 }
 
-pub fn backtrace() {
+impl Symbol {
+    pub fn address(&self) -> usize {
+        self.address
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    pub fn name(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.name) }
+    }
+}
+
+fn find_symbol(ksyms: &[Symbol], address: usize) -> Option<&Symbol> {
+    let mut lo = 0usize;
+    let mut hi = ksyms.len();
+
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        let symbol = &ksyms[mid];
+        if symbol.address <= address {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+
+    lo.checked_sub(1)
+        .map(|i| &ksyms[i])
+        .filter(|&symbol| symbol.address + symbol.size > address)
+}
+
+pub fn backtrace_for_each(f: impl Fn(usize, Option<&Symbol>)) {
     let ksyms = unsafe {
         let start: *const Symbol = addr_of!(_sksyms).cast();
         let end: *const Symbol = addr_of!(_eksyms).cast();
@@ -33,52 +66,38 @@ pub fn backtrace() {
         asm!("mov {}, rbp", out (reg) rbp);
     }
 
-    if ksyms.len() == 0 {
-        println!("no symbols found");
-        return;
-    }
-
     while !rbp.is_null() {
+        if !rbp.is_aligned() {
+            return;
+        }
+
         let return_address = unsafe {
             let return_address = *rbp.add(1);
             rbp = *rbp as *const u64;
             return_address
         } as usize;
+
         if return_address == 0 {
             return;
         }
-        let find = return_address - 1;
 
-        let mut lo = 0usize;
-        let mut hi = ksyms.len();
+        let symbol = find_symbol(ksyms, return_address - 1);
+        f(return_address, symbol);
+    }
+}
 
-        while lo < hi {
-            let mid = lo + (hi - lo) / 2;
-            let symbol = &ksyms[mid];
-            if symbol.address <= find {
-                lo = mid + 1;
-            } else {
-                hi = mid;
-            }
-        }
-
-        let found = lo
-            .checked_sub(1)
-            .map(|i| &ksyms[i])
-            .filter(|&symbol| symbol.address + symbol.size > find);
-
-        if let Some(symbol) = found {
-            let cstr = unsafe { CStr::from_ptr(symbol.name) };
-            let byte_str = ByteStr::new(cstr.to_bytes());
-
+pub fn backtrace() {
+    backtrace_for_each(|return_address, symbol| {
+        if let Some(symbol) = symbol {
             println!(
-                " -- [{:x}] {}+{:#x}",
+                " -- [{:x}] {}+{:#x}/{:#x}",
                 return_address,
-                byte_str,
-                return_address - symbol.address
+                ByteStr::new(symbol.name().to_bytes()),
+                return_address - symbol.address,
+                symbol.size,
             );
         } else {
             println!(" -- [{:x}] ???", return_address);
         }
-    }
+    });
 }
