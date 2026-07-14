@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "limine"
 version = "0.1.0"
-source = "git+https://github.com/zlamb1/limine-rs/#941dbf13d53f04d4610f2e95f227ca43f7b405e9"
+source = "git+https://github.com/zlamb1/limine-rs/#103d887fd9595b99c09309047d4ae6b101da57d6"
 
 [[package]]
 name = "void"

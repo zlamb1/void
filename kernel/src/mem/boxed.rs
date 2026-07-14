@@ -76,6 +76,19 @@ impl<T> Box<T> {
     pub fn as_mut_ptr(b: &Box<T>) -> *mut T {
         b.non_null.as_ptr()
     }
+
+    pub unsafe fn from_raw(ptr: *mut T) -> Box<T> {
+        unsafe { Self::from_non_null(NonNull::new(ptr).unwrap()) }
+    }
+
+    pub unsafe fn from_non_null(non_null: NonNull<T>) -> Box<T> {
+        debug_assert!(non_null.is_aligned());
+
+        Self {
+            non_null,
+            _data: PhantomData,
+        }
+    }
 }
 
 impl<T: Clone> Clone for Box<T> {

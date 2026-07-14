@@ -17,6 +17,7 @@ UEFI_IMG ?= $(PDIR)/void.uefi.img
 CROSS_CC ?= $(TARGET)-elf-gcc
 CARGO ?= cargo
 QEMU ?= qemu-system-x86_64
+QEMU_LOG ?= $(O)/qemu.log
 GDB ?= gdb
 LLDB ?= lldb
 
@@ -120,16 +121,16 @@ $(O):
 	mkdir $@
 
 qemu: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -accel kvm -smp sockets=1,cores=4,threads=1
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -smp sockets=1,cores=4,threads=1
 
 gdb: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -smp sockets=1,cores=4,threads=1 -d int -no-shutdown -no-reboot -s -S &>$(QEMU_LOG) & \
 	QEMU_PID=$$!; \
 	$(GDB) $(BIN) -q -ex 'target remote localhost:1234' -ex 'set pagination off' -ex 'layout src' -ex 'b kernel_main' -ex 'c'; \
 	kill -2 $$QEMU_PID
 
 lldb: $(BIOS_IMG)
-	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -s -S & \
+	$(QEMU) -drive format=raw,file=$< -m 64M -nic none -smp sockets=1,cores=4,threads=1 -d int -no-shutdown -no-reboot -s -S &>$(QEMU_LOG) & \
 	QEMU_PID=$$!; \
 	$(LLDB) $(BIN) -o 'gdb-remote localhost:1234' -o 'b kernel_main' -o 'c'
 	kill -2 $$QEMU_PID

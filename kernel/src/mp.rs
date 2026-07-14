@@ -1,6 +1,16 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{
+    ptr::NonNull,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
-use crate::{arch, mem::boxed::Box, per_cpu::PerCpu, println, sync::once::Once};
+use crate::{
+    arch,
+    boot::{BootInfo, Mp},
+    mem::boxed::Box,
+    per_cpu::PerCpu,
+    println,
+    sync::once::Once,
+};
 
 pub const BSP_CPU_ID: usize = 0;
 
@@ -16,19 +26,40 @@ pub fn init() {
         .expect("BSP already initialized");
 }
 
-pub fn prelude(_: u64) -> ! {
-    let cpu_id = CPU_COUNT.fetch_add(1, Ordering::Relaxed);
-    main(cpu_id);
+pub fn kickoff(boot_info: &impl BootInfo) -> ! {
+    let mp = boot_info.mp();
+
+    let mut per_cpu = Box::new(PerCpu::new(BSP_CPU_ID));
+    per_cpu.init();
+
+    mp.set_extra_argument(|bsp| {
+        if !bsp {
+            let cpu_id = CPU_COUNT.fetch_add(1, Ordering::Relaxed);
+            let mut per_cpu = Box::new(PerCpu::new(cpu_id));
+            per_cpu.init();
+            Box::into_raw(per_cpu).addr().try_into().unwrap()
+        } else {
+            0
+        }
+    });
+
+    mp.start(main);
+
+    main(Box::into_raw(per_cpu).addr().try_into().unwrap());
 }
 
-pub fn main(cpu_id: usize) -> ! {
-    let mut per_cpu = Box::new(PerCpu::new(cpu_id));
-    per_cpu.init();
-    let per_cpu = Box::leak(per_cpu);
+pub fn main(per_cpu: u64) -> ! {
+    let per_cpu = NonNull::new(per_cpu as *mut PerCpu).unwrap();
+    debug_assert!(per_cpu.is_aligned());
+
+    let per_cpu = unsafe { per_cpu.as_ref() };
+
     // SAFETY: Auxiliary APs (e.g. not BSP) _must_ not
     // take any locks prior to setting up their per-cpu data.
     arch::set_per_cpu(per_cpu);
-    println!("running mp{}", cpu_id);
+
+    println!("running mp{}", per_cpu.cpu_id());
+
     loop {}
 }
 

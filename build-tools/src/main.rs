@@ -50,8 +50,8 @@ fn main() {
     writeln!(output, "_sksyms:").expect("could not write output file");
 
     for (i, symbol) in (&symbols).iter().enumerate() {
-        writeln!(output, ".quad {}", symbol.address).expect("could not write output file");
-        writeln!(output, ".quad {}", symbol.size).expect("could not write output file");
+        writeln!(output, ".quad {:#x}", symbol.address).expect("could not write output file");
+        writeln!(output, ".quad {:#x}", symbol.size).expect("could not write output file");
         writeln!(output, ".quad .Lksym{}", i).expect("could not write output file");
     }
 

@@ -1,3 +1,8 @@
+use core::{
+    mem::transmute,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use limine::{date_at_boot, executable_cmdline, framebuffer, hhdm, memmap, mp};
 
 use crate::{
@@ -139,21 +144,43 @@ impl boot::BootInfo for BootInfo {
         FbIter::new()
     }
 
-    fn mp_start(&self, mp_main: fn(processor_id: u64) -> !) {
+    fn mp(&self) -> impl super::Mp {
+        Mp
+    }
+}
+
+pub struct Mp;
+
+static GOTO_ADDRESS: AtomicUsize = AtomicUsize::new(0);
+
+impl super::Mp for Mp {
+    fn start(&self, main: fn(extra_argument: u64) -> !) {
         let requests = REQUESTS.acquire();
+        GOTO_ADDRESS.store(main as usize, Ordering::Release);
         if let Some(response) = requests.mp.response() {
             for mp in response.iter() {
-                mp.set_extra_argument(mp_main as u64);
-                mp.set_goto_address(limine_mp_entry);
+                mp.set_goto_address(mp_entry);
+            }
+        }
+    }
+
+    fn set_extra_argument(&self, f: impl Fn(bool) -> u64) {
+        let requests = REQUESTS.acquire();
+        if let Some(response) = requests.mp.response() {
+            for cpu in response.iter() {
+                cpu.set_extra_argument(f(response.is_bsp(cpu)));
             }
         }
     }
 }
 
-extern "C" fn limine_mp_entry(cpu: *const mp::Cpu) {
+extern "C" fn mp_entry(cpu: *const mp::Cpu) {
     let cpu = unsafe { &*cpu };
-    let mp_main: fn(u64) -> ! = unsafe { core::mem::transmute(cpu.extra_argument()) };
-    mp_main(cpu.processor_id() as u64);
+    let goto_address = GOTO_ADDRESS.load(Ordering::Acquire);
+    unsafe {
+        let f: fn(u64) -> ! = transmute(goto_address);
+        f(cpu.extra_argument());
+    }
 }
 
 pub fn init() -> BootInfo {

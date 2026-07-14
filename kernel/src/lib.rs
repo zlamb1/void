@@ -8,8 +8,6 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use crate::boot::BootInfo;
-
 #[cfg_attr(target_arch = "x86_64", path = "x86_64/mod.rs")]
 pub mod arch;
 pub mod backtrace;
@@ -62,8 +60,9 @@ pub extern "C" fn kernel_main() -> ! {
     // a per-cpu structure for the BSP.
     mp::init();
     log::init();
+
     let boot_info = boot::init();
     mem::init(&boot_info);
-    boot_info.mp_start(mp::prelude);
-    mp::main(mp::BSP_CPU_ID);
+
+    mp::kickoff(&boot_info);
 }
